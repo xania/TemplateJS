@@ -1,0 +1,21 @@
+{
+    "compileOnSave": false,
+    "compilerOptions": {
+        "lib": [
+            "es2018", "dom"
+        ],
+        "module": "es2015",
+        "target": "es6",
+        "sourceMap": true,
+        "jsx": "react",
+        "moduleResolution": "node",
+        "jsxFactory": "tpl",
+        "baseUrl": "",
+        "removeComments": true,
+        "noImplicitAny": false
+    },
+    "include": [
+        "**/*.ts",
+        "**/*.tsx"
+    ]
+}
