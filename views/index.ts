@@ -154,7 +154,7 @@ export function asTemplate(item: any): ITemplate {
     else if (item.view !== null && typeof item.view !== "undefined")
         return asTemplate(item.view);
 
-    return new TextTemplate(item);
+    return new NativeTemplate(item);
 }
 
 function isSubscribable(value): value is Subscribable {
@@ -200,7 +200,7 @@ class TagTemplate implements ITemplate {
     }
 }
 
-class TextTemplate implements ITemplate {
+class NativeTemplate implements ITemplate {
     constructor(public value: Primitive | IExpression<Primitive>) {
     }
 
@@ -208,16 +208,16 @@ class TextTemplate implements ITemplate {
         let { value } = this;
 
         if (isPrimitive(value)) {
-            return driver.createText(value, idx);
+            return driver.createNative(value, idx);
         }
         else if (isSubscribable(value)) {
             let expr = value;
-            let textElement = driver.createText(expr.value, idx);
+            let textElement = driver.createNative(expr.value, idx);
             expr.subscribe(textElement);
             return textElement;
         }
         else {
-            return driver.createText(JSON.stringify(value), idx);
+            return driver.createNative(value, idx);
         }
     }
 }

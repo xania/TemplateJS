@@ -1,6 +1,6 @@
 import { IDriver, Primitive, Executable } from "./driver"
 
-const __emptyBinding = { dispose() {} };
+const __emptyBinding = { dispose() { } };
 export class DomDriver implements IDriver {
     public target;
     private domElements = [];
@@ -22,14 +22,14 @@ export class DomDriver implements IDriver {
     }
 
     createEvent(name, value: Function | Executable<any>) {
-        if (!value) 
+        if (!value)
             return __emptyBinding;
 
-        const { target } = this;        
+        const { target } = this;
 
-        if(typeof value === "function")
+        if (typeof value === "function")
             target.addEventListener(name, value);
-        else 
+        else
             target.addEventListener(name, evt => value.execute(evt));
         return {
             dispose() {
@@ -60,16 +60,29 @@ export class DomDriver implements IDriver {
         }
     }
 
-    createText(value: Primitive) {
-        const textNode: Text = document.createTextNode(value as string);
-        this.appendChild(textNode);
+    createNative(value: Primitive) {
+        const type = typeof value;
+        if (isDomNode(value)) {
+            this.appendChild(value);
+            return {
+                next(node) {
+                    throw Error("Not implemented");
+                },
+                dispose() {
+                    return value.remove();
+                }
+            }
+        } else {
+            const node: Text = document.createTextNode(value as string);
+            this.appendChild(node);
 
-        return {
-            next(value) {
-                textNode.nodeValue = value as string;
-            },
-            dispose() {
-                return textNode.remove();
+            return {
+                next(value) {
+                    node.nodeValue = value as string;
+                },
+                dispose() {
+                    return node.remove();
+                }
             }
         }
     }
@@ -265,7 +278,7 @@ function createScope(parent: DomDriver, name: string) {
                         }
                     }
                 },
-                createText(value: Primitive, index: number) {
+                createNative(value: Primitive, index: number) {
                     const textNode = document.createTextNode(value as string);
                     insertAt(textNode, index);
 
@@ -355,9 +368,25 @@ function createElement(target, name) {
 function toString(value) {
     if (value === null || typeof value === "undefined")
         return value;
-    
+
     if (typeof value === "string" || typeof value === "boolean")
         return value;
-    
+
     return value.toString();
+}
+
+
+function isDomNode(obj): obj is HTMLElement {
+    try {
+        //Using W3 DOM2 (works for FF, Opera and Chrome)
+        return obj instanceof HTMLElement;
+    }
+    catch (e) {
+        //Browsers not supporting W3 DOM2 don't have HTMLElement and
+        //an exception is thrown and we end up here. Testing some
+        //properties that all elements have (works on IE7)
+        return (typeof obj === "object") &&
+            (obj.nodeType === 1) && (typeof obj.style === "object") &&
+            (typeof obj.ownerDocument === "object");
+    }
 }

@@ -2,7 +2,7 @@ export type Executable<T> = { execute: (e:T) => any } | Function
 
 export interface IDriver {
     createElement(name: string, index: number, init?: Func<any>): TagElement;
-    createText(value: any, index: number): TextElement;
+    createNative(value: any, index: number): TextElement;
     createAttribute(name: string, value: any): TextElement;
     createEvent(name: string, value: Executable<any> | Function): TagEvent;
     createScope(name: string): ScopeElement;

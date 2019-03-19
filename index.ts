@@ -1,3 +1,4 @@
+export { tpl as default } from "./views/index.js"
 export { tpl } from "./views/index.js"
 export { DomDriver } from "./views/dom.js"
 export { renderAll } from "./views/driver.js"
