@@ -6,7 +6,6 @@ export interface IDriver {
     createAttribute(name: string, value: any): TextElement;
     createEvent(name: string, value: Executable<any> | Function): TagEvent;
     createScope(name: string): ScopeElement;
-    init?();
 }
 
 export interface TagEvent {
@@ -55,11 +54,7 @@ export interface Binding {
 export function renderAll(driver: IDriver, rootTpl: ITemplate, idx: number = 0) {
     const rootBinding = rootTpl.render(driver, idx);
     const stack = [rootBinding];
-    const queue = [];
     const bindings = [];
-
-    if (driver.init)
-        queue.push(driver);
 
     while (stack.length) {
         const binding = stack.pop();
@@ -71,9 +66,6 @@ export function renderAll(driver: IDriver, rootTpl: ITemplate, idx: number = 0) 
             continue;
 
         const driver = binding.driver();
-        if (driver.init)
-            queue.push(driver);
-
         if (binding.children) {
             for (let i = 0; i < binding.children.length; i++) {
                 let child = binding.children[i];
@@ -85,10 +77,6 @@ export function renderAll(driver: IDriver, rootTpl: ITemplate, idx: number = 0) 
         }
     }
 
-    const length = +queue.length;
-    for (var i = 0; i < length; i++) {
-        queue[i].init();
-    }
     for(var i=0 ; i<bindings.length ; i++) {
         bindings[i].ready();
     }
