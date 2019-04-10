@@ -1,4 +1,4 @@
-import { IDriver, Primitive, Executable } from "./driver"
+import { IDriver, Primitive, Executable, BindingValue, isSubscribable, TagElement, ScopeElement } from "./driver"
 
 const __emptyBinding = { dispose() { } };
 export class DomDriver implements IDriver {
@@ -17,7 +17,7 @@ export class DomDriver implements IDriver {
         return new DomDriver(node);
     }
 
-    createScope(name: string) {
+    createScope(name: string): ScopeElement {
         return createScope(this, name);
     }
 
@@ -42,7 +42,7 @@ export class DomDriver implements IDriver {
         this.target.appendChild(child);
     }
 
-    createElement(name: string, idx, init) {
+    createElement(name: string, init) {
         const tagNode = createElement(this.target, name);
         this.appendChild(tagNode);
         const driver = this.createDriver(tagNode);
@@ -60,29 +60,20 @@ export class DomDriver implements IDriver {
         }
     }
 
-    createNative(value: Primitive) {
-        const type = typeof value;
-        if (isDomNode(value)) {
-            this.appendChild(value);
-            return {
-                next(node) {
-                    throw Error("Not implemented");
-                },
-                dispose() {
-                    return value.remove();
-                }
-            }
-        } else {
-            const node: Text = document.createTextNode(value as string);
-            this.appendChild(node);
+    // insertAt(tagNode, index, anchorNode) {
+    //     insertNodeAt(this, this.domElements, anchorNode, tagNode, index);
+    // }
 
-            return {
-                next(value) {
-                    node.nodeValue = value as string;
-                },
-                dispose() {
-                    return node.remove();
-                }
+    createNative(value: Primitive | HTMLElement) {
+        const node = isDomNode(value) ? value : document.createTextNode(value as string);
+        this.appendChild(node);
+
+        return {
+            next(value) {
+                node.nodeValue = value as string;
+            },
+            dispose() {
+                return node.remove();
             }
         }
     }
@@ -230,37 +221,21 @@ function createScope(parent: DomDriver, name: string) {
     const elements = [];
 
     return {
-        info() {
-            return {
-                commentNode, target: parent.target, elements
-            }
-        },
         driver() {
-            function insertAt(newElement, index: number) {
-                if (index > elements.length)
-                    throw new Error("wat doe je?");
-                if (elements[index]) {
-                    parent.target.insertBefore(newElement, elements[index]);
-                    elements.splice(index, 0, newElement);
-                } else {
-                    parent.target.insertBefore(newElement, commentNode);
-                    elements[index] = newElement;
-                }
-            }
             return {
+                appendChild(node) {
+                    return parent.target.insertBefore(node, commentNode);
+                },
                 createEvent(name, value) {
                     throw new Error("create Event is not (yet) supported");
                 },
                 createAttribute(name, value) {
                     return createAttribute(parent.target, name, value);
                 },
-                appendChild(tagNode) {
-                    insertAt(tagNode, elements.length);
-                },
-                createElement(name, index: number, init) {
+                createElement(name, init) {
                     const tagNode = createElement(parent.target, name);
                     const tagDriver = parent.createDriver(tagNode);
-                    insertAt(tagNode, index);
+                    this.appendChild(tagNode);
 
                     return {
                         ready() {
@@ -278,13 +253,13 @@ function createScope(parent: DomDriver, name: string) {
                         }
                     }
                 },
-                createNative(value: Primitive, index: number) {
+                createNative(value: Primitive) {
                     const textNode = document.createTextNode(value as string);
-                    insertAt(textNode, index);
+                    this.appendChild(textNode);
 
                     return {
                         next(value) {
-                            textNode.nodeValue = value as string;
+                            (textNode.nodeValue = value as string);
                         },
                         dispose() {
                             let idx = elements.indexOf(textNode);
@@ -388,5 +363,20 @@ function isDomNode(obj): obj is HTMLElement {
         return (typeof obj === "object") &&
             (obj.nodeType === 1) && (typeof obj.style === "object") &&
             (typeof obj.ownerDocument === "object");
+    }
+}
+
+function insertNodeAt(parent: { target: HTMLElement } , elements, anchorNode, newElement, index: number) {
+    if (index > elements.length)
+        throw new Error("wat doe je?");
+    if (elements[index]) {
+        parent.target.insertBefore(newElement, elements[index]);
+        elements.splice(index, 0, newElement);
+    } else if (anchorNode) {
+        parent.target.insertBefore(newElement, anchorNode);
+        elements[index] = newElement;
+    } else {
+        parent.target.appendChild(newElement);
+        elements[index] = newElement;
     }
 }

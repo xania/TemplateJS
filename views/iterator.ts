@@ -1,4 +1,4 @@
-import { ITemplate, IDriver, renderAll } from "./driver.js"
+import { ITemplate, IDriver, renderAll, Binding } from "./driver.js"
 import { IExpression, ObservableArray, Unsubscribable } from "./expression.js"
 
 
@@ -12,7 +12,7 @@ class IteratorTemplate<T> implements ITemplate {
     constructor(public source: ObservableArray<T> | T[], public children: any[]) {
     }
 
-    render(driver: IDriver) {
+    render(driver: IDriver): Binding {
         const iterator = this.source;
         const { children } = this;
         const childrenLength = children.length;
@@ -62,15 +62,13 @@ class IteratorTemplate<T> implements ITemplate {
             }
         }
 
-        return scope;
-
         function insertAt(item, index) {
 
             const bindings = [];
 
             for (let i = 0; i < childrenLength; i++) {
                 let child = children[i];
-                let binding = renderAll(scopeDriver, typeof child === "function" ? child(item) : child, index);
+                let binding = renderAll(scopeDriver, typeof child === "function" ? child(item) : child);
                 bindings.push(binding);
             }
 

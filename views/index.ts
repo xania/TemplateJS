@@ -29,24 +29,26 @@ export class FragmentTemplate implements ITemplate {
     }
 
     render(driver: IDriver) {
-        const { children } = this;
-        if (!children)
-            return;
-
-        const bindings = [];
-        for (let i = 0; i < children.length; i++) {
-            const childBinding = renderAll(driver, children[i], i);
-            bindings.push(childBinding);
-        }
-
         return {
             driver() {
                 return driver;
             },
             dispose() {
-                for (let i = 0; i < bindings.length; i++) {
-                    bindings[i].dispose();
-                }
+            }
+        }
+    }
+}
+
+export class EmptyTemplate implements ITemplate {
+    constructor() {
+    }
+
+    render(driver: IDriver) {
+        return {
+            driver() {
+                return driver;
+            },
+            dispose() {
             }
         }
     }
@@ -182,9 +184,9 @@ class TagTemplate implements ITemplate {
     constructor(public name: string, public children: ITemplate[]) {
     }
 
-    render(driver: IDriver, index: number, init?: Func<any>) {
+    render(driver: IDriver, init?: Func<any>) {
         let { name } = this;
-        let elt = driver.createElement(name, index, init);
+        let elt = driver.createElement(name, init);
         return {
             children: this.children,
             ready() {
@@ -204,20 +206,20 @@ class NativeTemplate implements ITemplate {
     constructor(public value: Primitive | IExpression<Primitive>) {
     }
 
-    render(driver: IDriver, idx: number): Binding {
+    render(driver: IDriver): Binding {
         let { value } = this;
 
         if (isPrimitive(value)) {
-            return driver.createNative(value, idx);
+            return driver.createNative(value);
         }
         else if (isSubscribable(value)) {
             let expr = value;
-            let textElement = driver.createNative(expr.value, idx);
-            expr.subscribe(textElement);
+            let textElement = driver.createNative(expr.value);
+            expr.subscribe(textElement as any);
             return textElement;
         }
         else {
-            return driver.createNative(value, idx);
+            return driver.createNative(value);
         }
     }
 }
@@ -241,7 +243,7 @@ class Attribute implements ITemplate {
         else if (isSubscribable(value)) {
             let expr = value;
             let attrElement = driver.createAttribute(name, expr.value);
-            expr.subscribe(attrElement);
+            expr.subscribe(attrElement as any);
             return attrElement;
         }
         else {

@@ -26,7 +26,7 @@ class IfTemplate implements ITemplate {
             if (self.props.condition) {
                 return fragment.render(driver);
             } else {
-                return { dispose () {} };
+                return { driver: () => driver, dispose () {} };
             }
         }
 
