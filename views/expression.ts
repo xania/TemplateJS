@@ -2,7 +2,9 @@ type NextObserver<T> = { next(value?: T): void }
 
 export interface IExpression<T> {
     value?: T,
+    property<K extends keyof T>(propertyName: K): IExpression<T[K]>;
     subscribe(observer: NextObserver<T>): Unsubscribable;
+    lift<U>(project: (value: T, prev) => U): IExpression<U>
 }
 
 type ArrayMutation<T> = (

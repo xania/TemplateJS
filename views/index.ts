@@ -4,10 +4,20 @@ import { IExpression } from "./expression.js"
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
 declare type Subscribable = { subscribe: (observer: Observer) => Subscription };
-declare type PureComponent = (props: Props, children: ITemplate[]) => ITemplate
+declare type PureComponent = (...args: any) => any
 declare type Func<T> = (arg: T) => any;
 
-export function tpl(name: string | PureComponent, props: Props, ...children: any[]): ITemplate {
+type FirstArgType<T extends (...args: any) => any> = T extends (arg1: infer P, ...args: any) => any ? P : never;
+type SecondArgType<A1, T extends (...args: any) => any> = T extends (arg1: A1, arg2: infer P, ...args: any) => any ? P : never;
+// type PropsType<T extends (...args: any) => any> = T extends (p: infer P, ...args: any) => any ? P : never;
+// type ChildrenType<T extends (...args: any) => any> = T extends (p, children: infer C, ...args: any) => any ? C : never;
+
+function tpl(name: string, props: Props, ...children: any[]): ITemplate; 
+function tpl<T extends (props: TProps, ...children: any[]) => TResult, TProps, TResult>(
+    type: T, 
+    props: TProps, 
+    ...children: SecondArgType<TProps, T>): TResult; 
+function tpl(name: string | PureComponent, props: Props, ...children: any[]): ITemplate {
     if (typeof name === "string") {
         return new TagTemplate(name, children && children.map(asTemplate).concat(props ? attributes(props) : []))
     } else if (typeof name === "function") {
@@ -18,6 +28,9 @@ export function tpl(name: string | PureComponent, props: Props, ...children: any
         throw Error("not supported")
     }
 }
+
+export { tpl }
+export default tpl;
 
 function component(type, props, children) {
     var obj = Reflect.construct(type, [props, children]);
