@@ -68,15 +68,16 @@ export function renderStack(stack: StackItem[]) {
     while (stack.length) {
         const { driver, template } = stack.pop();
         const binding = template.render(driver);
-        bindings.push(binding);
-
-        if (binding.driver) {
-            const { children } = template;
-            if (children) {
-                var childDriver = binding.driver();
-                if (childDriver) {
-                    for (var i = children.length - 1; i >= 0; i--) {
-                        stack.push({ driver: childDriver, template: asTemplate(children[i]) });
+        if (binding) {
+            bindings.push(binding);
+            if (binding.driver) {
+                const { children } = template;
+                if (children) {
+                    var childDriver = binding.driver();
+                    if (childDriver) {
+                        for (var i = children.length - 1; i >= 0; i--) {
+                            stack.push({ driver: childDriver, template: asTemplate(children[i]) });
+                        }
                     }
                 }
             }

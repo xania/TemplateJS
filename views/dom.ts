@@ -294,7 +294,7 @@ function createAttribute(target, name: string, value: Primitive) {
             target,
             next: className,
             dispose() {
-                prevValue.forEach(cl => target.classList.remove(cl));
+                prevValue.forEach(cl => cl && target.classList.remove(cl));
             }
         }
     } else {

@@ -4,14 +4,14 @@ import arrayComparer from "storejs/src/array-comparer";
 
 type IteratorProps<T> = { source: IExpression<T[]> | T[] }
 
-type ItemTemplate<T> = (child: IExpression<T>) => any;
+type ItemTemplate = (child: any) => any;
 
-export default function <T>(props: IteratorProps<T>, itemTemplates: ItemTemplate<T>[]): IteratorTemplate<T> {
+export default function <T>(props: IteratorProps<T>, itemTemplates: ItemTemplate[]): IteratorTemplate<T> {
     return new IteratorTemplate<T>(props.source, itemTemplates);
 }
 
 class IteratorTemplate<T> implements ITemplate {
-    constructor(public source: IExpression<T[]> | T[], public itemTemplates: ItemTemplate<T>[]) {
+    constructor(public source: IExpression<T[]> | T[], public itemTemplates: ItemTemplate[]) {
     }
 
     render(driver: IDriver): Binding {
@@ -23,7 +23,14 @@ class IteratorTemplate<T> implements ITemplate {
         const scopeDriver = scope.driver();
 
         if (Array.isArray(source)) {
-            throw new Error("Not Implemented");
+            const bindings = source.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
+            return {
+                dispose() {
+                    for (var i = 0; i < bindings.length; i++) {
+                        bindings[i].dispose();
+                    }
+                }
+            }
         } else {
             const bindings = [];
             const observer = source.lift((value, prevValue) => {
@@ -53,7 +60,9 @@ class IteratorTemplate<T> implements ITemplate {
 
             return {
                 dispose() {
-                    // observer.dispose();
+                    for (var i = 0; i < bindings.length; i++) {
+                        bindings[i].dispose();
+                    }
                 }
             }
         }
