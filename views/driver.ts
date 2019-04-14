@@ -58,7 +58,16 @@ export interface Binding {
 }
 
 export function renderAll(rootDriver: IDriver, rootTpl: ITemplate) {
-    return renderStack([{ driver: rootDriver, template: rootTpl }]);
+    var bindings = renderStack([{ driver: rootDriver, template: rootTpl }]);
+
+    return {
+        dispose() {
+            for (var i = 0; i < bindings.length; i++) {
+                bindings[i].dispose();
+            }
+            // conditionalDriver.dispose();
+        }
+    }
 }
 
 type StackItem = { driver: IDriver, template: ITemplate };
@@ -90,18 +99,10 @@ export function renderStack(stack: StackItem[]) {
             binding.ready();
     }
 
-
-    return {
-        dispose() {
-            for (var i = 0; i < bindings.length; i++) {
-                bindings[i].dispose();
-            }
-            // conditionalDriver.dispose();
-        }
-    }
+    return bindings;
 }
 
-export function renderMany(driver: IDriver, children: ITemplate[]): Binding {
+export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
     var stack = children.map(template => ({
         driver,
         template
@@ -140,12 +141,14 @@ class ConditionalTemplate implements ITemplate {
 
     render(driver: IDriver): Binding {
         const scopeDriver = driver.createScope("--- conditional ---").driver();
-        let inner = null;
+        let inner: Binding[] = null;
         this.expr.subscribe(visible => {
             if (visible) {
                 inner = inner || renderMany(scopeDriver, this._children);
             } else if (inner) {
-                inner.dispose();
+                for(var i=0 ; i<inner.length ; i++) {
+                    inner[i].dispose();
+                }
                 inner = null;
             }
         });

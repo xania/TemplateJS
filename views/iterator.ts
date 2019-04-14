@@ -23,7 +23,13 @@ class IteratorTemplate<T> implements ITemplate {
         const scopeDriver = scope.driver();
 
         if (Array.isArray(source)) {
-            const bindings = source.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
+            const bindings = [];
+            for(var i=0 ; i<source.length ; i++) {
+                const itemBindings = source.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
+                for(var e=0 ; e<itemBindings.length ; e++) {
+                    bindings.push(itemBindings[e]);
+                }
+            }
             return {
                 dispose() {
                     for (var i = 0; i < bindings.length; i++) {
@@ -32,7 +38,7 @@ class IteratorTemplate<T> implements ITemplate {
                 }
             }
         } else {
-            const bindings = [];
+            const bindings: Binding[][] = [];
             const observer = source.lift((value, prevValue) => {
                 const mutations = arrayComparer(value, prevValue);
                 if (mutations.length === 0)
@@ -43,10 +49,14 @@ class IteratorTemplate<T> implements ITemplate {
                     var mut = mutations[i];
                     if (mut.type === "insert") {
                         var item: IExpression<T> = source.property(mut.index, true);
-                        var binding = renderMany(scopeDriver, itemTemplates.map(template => template(item)));
-                        bindings.splice(mut.index, 0, binding);
+                        var itemBindings = renderMany(scopeDriver, itemTemplates.map(template => template(item)));
+                        itemBindings.push(item);
+                        bindings.splice(mut.index, 0, itemBindings);
                     } else if (mut.type === "remove") {
-                        bindings[mut.index].dispose();
+                        const itemBindings = bindings[mut.index];
+                        for(var e=0 ; e<itemBindings.length ; e++) {
+                            itemBindings[e].dispose();
+                        }
                         bindings.splice(mut.index, 1);
                     } else if (mut.type === "move") {
                         var tmp1 = bindings[mut.from];
@@ -61,7 +71,10 @@ class IteratorTemplate<T> implements ITemplate {
             return {
                 dispose() {
                     for (var i = 0; i < bindings.length; i++) {
-                        bindings[i].dispose();
+                        const itemBindings = bindings[i];
+                        for(var e=0 ; e<itemBindings.length ; e++) {
+                            itemBindings[i].dispose();
+                        }
                     }
                 }
             }

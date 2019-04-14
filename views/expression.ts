@@ -6,6 +6,7 @@ export interface IExpression<T> {
     property<K extends keyof T>(propertyName: K, immutable: true): IExpression<T[K]>;
     subscribe(observer: NextObserver<T>): Unsubscribable;
     lift<U>(project: (value: T, prev) => U): IExpression<U>
+    dispose();
 }
 
 type ArrayMutation<T> = (
