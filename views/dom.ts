@@ -221,8 +221,12 @@ function createScope(parent: DomDriver, name: string) {
     const elements = [];
 
     return {
+        parent,
         driver() {
             return {
+                createDriver(node) {
+                    return new DomDriver(node);
+                },
                 appendChild(node) {
                     return parent.target.insertBefore(node, commentNode);
                 },
@@ -271,7 +275,7 @@ function createScope(parent: DomDriver, name: string) {
                     }
                 },
                 createScope(name) {
-                    return createScope(this, name);
+                    return createScope(parent, name);
                 }
             }
         },
@@ -334,7 +338,7 @@ function createChild(parent: DomDriver, name: string) {
 }
 
 function createElement(target, name) {
-    const namespaceURI = name === "svg" ? "http://www.w3.org/2000/svg" : target.namespaceURI;
+    const namespaceURI = name === "svg" ? "http://www.w3.org/2000/svg" : target && target.namespaceURI;
     const tagNode = document.createElementNS(namespaceURI, name);
 
     return tagNode;

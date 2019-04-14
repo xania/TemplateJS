@@ -70,10 +70,11 @@ class IteratorTemplate<T> implements ITemplate {
 
             return {
                 dispose() {
+                    observer.dispose();
                     for (var i = 0; i < bindings.length; i++) {
                         const itemBindings = bindings[i];
                         for(var e=0 ; e<itemBindings.length ; e++) {
-                            itemBindings[i].dispose();
+                            itemBindings[e].dispose();
                         }
                     }
                 }
