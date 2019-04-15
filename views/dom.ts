@@ -313,7 +313,10 @@ function createAttribute(target, name: string, value: Primitive) {
     }
 
     function valueAttribute(value: string) {
-        target.value = value;
+        if (value === null || value === undefined)
+            target.value = "";
+        else
+            target.value = value;
     }
 
     function defaultAttribute(value: string) {
