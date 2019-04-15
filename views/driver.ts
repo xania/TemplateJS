@@ -2,7 +2,7 @@ import { asTemplate, FragmentTemplate, EmptyTemplate } from "templatejs/views";
 
 declare type Subscription = { unsubscribe() };
 declare type Observer<T> = (value: T) => any;
-declare type Subscribable<T> = { subscribe: (observer: Observer<T>) => Subscription };
+export declare type Subscribable<T> = { subscribe: (observer: Observer<T>) => Subscription };
 
 export type Executable<T> = { execute: (e: T) => any } | Function
 export type BindingValue<T> = T | Subscribable<T>;
@@ -124,43 +124,4 @@ export function isSubscribable<T>(value): value is Subscribable<T> {
     return value && typeof value.subscribe === "function";
 }
 
-export function Conditional(props: { expr: BindingValue<boolean> }, children: ITemplate[]) {
-    if (isSubscribable(props.expr)) {
-        return new ConditionalTemplate(props.expr, children.map(asTemplate));
-    } else {
-        if (props.expr)
-            return new FragmentTemplate(children);
-        else
-            return new EmptyTemplate();
-    }
-}
 
-class ConditionalTemplate implements ITemplate {
-    constructor(public expr: Subscribable<boolean>, public _children: ITemplate[]) {
-    }
-
-    render(driver: IDriver): Binding {
-        const scopeDriver = driver.createScope("--- conditional ---").driver();
-        let inner: Binding[] = null;
-        this.expr.subscribe(visible => {
-            if (visible) {
-                inner = inner || renderMany(scopeDriver, this._children);
-            } else if (inner) {
-                for(var i=0 ; i<inner.length ; i++) {
-                    inner[i].dispose();
-                }
-                inner = null;
-            }
-        });
-
-
-        return {
-            driver() {
-                return scopeDriver;
-            },
-            dispose() {
-                // conditionalDriver.dispose();
-            }
-        }
-    }
-}

@@ -218,7 +218,6 @@ export class DomDriver implements IDriver {
 function createScope(parent: DomDriver, name: string) {
     let commentNode = document.createComment(name);
     parent.appendChild(commentNode);
-    const elements = [];
 
     return {
         parent,
@@ -249,10 +248,6 @@ function createScope(parent: DomDriver, name: string) {
                             return tagDriver;
                         },
                         dispose() {
-                            let idx = elements.indexOf(tagNode);
-                            if (idx >= 0)
-                                elements.splice(idx, 1);
-
                             return tagNode.remove();
                         }
                     }
@@ -266,10 +261,6 @@ function createScope(parent: DomDriver, name: string) {
                             (textNode.nodeValue = value as string);
                         },
                         dispose() {
-                            let idx = elements.indexOf(textNode);
-                            if (idx >= 0)
-                                elements.splice(idx, 1);
-
                             return textNode.remove();
                         }
                     }
@@ -280,10 +271,6 @@ function createScope(parent: DomDriver, name: string) {
             }
         },
         dispose() {
-            // console.log(commentNode, elements.map(e => e));
-            for (let i = 0; i < elements.length; i++) {
-                elements[i].remove();
-            }
             commentNode.remove();
         }
     }
@@ -301,6 +288,14 @@ function createAttribute(target, name: string, value: Primitive) {
                 prevValue.forEach(cl => cl && target.classList.remove(cl));
             }
         }
+    } else if (name === "value") {
+        valueAttribute(toString(value));
+        return {
+            next: valueAttribute,
+            dispose() {
+                target.removeAttribute(name);
+            }
+        }
     } else {
         defaultAttribute(toString(value));
         return {
@@ -315,6 +310,10 @@ function createAttribute(target, name: string, value: Primitive) {
         prevValue.forEach(cl => target.classList.remove(cl));
         prevValue = value.split(' ');
         prevValue.forEach(cl => target.classList.add(cl));
+    }
+
+    function valueAttribute(value: string) {
+        target.value = value;
     }
 
     function defaultAttribute(value: string) {
