@@ -24,11 +24,9 @@ class IteratorTemplate<T> implements ITemplate {
 
         if (Array.isArray(source)) {
             const bindings = [];
-            for(var i=0 ; i<source.length ; i++) {
-                const itemBindings = source.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
-                for(var e=0 ; e<itemBindings.length ; e++) {
-                    bindings.push(itemBindings[e]);
-                }
+            const itemBindings = source.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
+            for (var e = 0; e < itemBindings.length; e++) {
+                bindings.push(itemBindings[e]);
             }
             return {
                 dispose() {
@@ -54,7 +52,7 @@ class IteratorTemplate<T> implements ITemplate {
                         bindings.splice(mut.index, 0, itemBindings);
                     } else if (mut.type === "remove") {
                         const itemBindings = bindings[mut.index];
-                        for(var e=0 ; e<itemBindings.length ; e++) {
+                        for (var e = 0; e < itemBindings.length; e++) {
                             itemBindings[e].dispose();
                         }
                         bindings.splice(mut.index, 1);
@@ -73,7 +71,7 @@ class IteratorTemplate<T> implements ITemplate {
                     observer.dispose();
                     for (var i = 0; i < bindings.length; i++) {
                         const itemBindings = bindings[i];
-                        for(var e=0 ; e<itemBindings.length ; e++) {
+                        for (var e = 0; e < itemBindings.length; e++) {
                             itemBindings[e].dispose();
                         }
                     }
