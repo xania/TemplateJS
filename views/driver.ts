@@ -1,4 +1,4 @@
-import { asTemplate, FragmentTemplate, EmptyTemplate } from "templatejs/views";
+import { asTemplate } from "templatejs/views";
 
 declare type Subscription = { unsubscribe() };
 declare type Observer<T> = (value: T) => any;

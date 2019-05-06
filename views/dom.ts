@@ -1,4 +1,4 @@
-import { IDriver, Primitive, Executable, BindingValue, isSubscribable, TagElement, ScopeElement } from "./driver"
+import { IDriver, Primitive, Executable, ScopeElement } from "./driver"
 
 const __emptyBinding = { dispose() { } };
 export class DomDriver implements IDriver {
