@@ -12,11 +12,11 @@ type SecondArgType<A1, T extends (...args: any) => any> = T extends (arg1: A1, a
 // type PropsType<T extends (...args: any) => any> = T extends (p: infer P, ...args: any) => any ? P : never;
 // type ChildrenType<T extends (...args: any) => any> = T extends (p, children: infer C, ...args: any) => any ? C : never;
 
-function tpl(name: string, props: Props, ...children: any[]): ITemplate; 
+function tpl(name: string, props: Props, ...children: any[]): ITemplate;
 function tpl<T extends (props: TProps, ...children: any[]) => TResult, TProps, TResult>(
-    type: T, 
-    props: TProps, 
-    ...children: SecondArgType<TProps, T>): TResult; 
+    type: T,
+    props: TProps,
+    ...children: SecondArgType<TProps, T>): TResult;
 function tpl(name: string | PureComponent, props: Props, ...children: any[]): ITemplate {
     if (typeof name === "string") {
         return new TagTemplate(name, children && children.map(asTemplate).concat(props ? attributes(props) : []))
@@ -64,6 +64,20 @@ export class EmptyTemplate implements ITemplate {
             dispose() {
             }
         }
+    }
+}
+
+class TemplateSubscription implements ITemplate {
+
+    constructor(private subscription: Subscription) {
+    }
+
+    dispose() {
+        return this.subscription.unsubscribe();
+    }
+
+    render(driver: IDriver) {
+        return this;
     }
 }
 
@@ -166,6 +180,8 @@ export function asTemplate(item: any): ITemplate {
         return new TemplatePromise(item);
     else if (isSubscribable(item))
         return new TemplateObservable(item);
+    else if (isSubscription(item))
+        return new TemplateSubscription(item);
     else if (item.view !== null && typeof item.view !== "undefined")
         return asTemplate(item.view);
 
@@ -174,6 +190,10 @@ export function asTemplate(item: any): ITemplate {
 
 function isSubscribable(value): value is Subscribable {
     return value && typeof value.subscribe === "function";
+}
+
+function isSubscription(value): value is Subscription {
+    return value && typeof value.unsubscribe === "function";
 }
 
 function isPromise(value): value is Promise<any> {
