@@ -21,12 +21,17 @@ function tpl(name: string | PureComponent, props: Props, ...children: any[]): IT
     if (typeof name === "string") {
         return new TagTemplate(name, children && children.map(asTemplate).concat(props ? attributes(props) : []))
     } else if (typeof name === "function") {
-        return component(name, props, children);
+        if (name.constructor === f.constructor) {
+            return name(props, children);
+        } else 
+            return component(name, props, children);
     } else if (Array.isArray(name)) {
         return new FragmentTemplate((name as any[]).map(asTemplate))
     } else {
         throw Error("not supported")
     }
+
+    async function f() {}
 }
 
 export { tpl }
