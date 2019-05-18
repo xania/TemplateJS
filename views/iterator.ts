@@ -6,7 +6,7 @@ type IteratorProps<T> = { source: IExpression<T[]> | T[] }
 
 type ItemTemplate = (child: any) => any;
 
-export default function <T>(props: IteratorProps<T>, itemTemplates: ItemTemplate[]): IteratorTemplate<T> {
+export default function Iterator<T>(props: IteratorProps<T>, itemTemplates: ItemTemplate[]): IteratorTemplate<T> {
     return new IteratorTemplate<T>(props.source, itemTemplates);
 }
 
