@@ -12,12 +12,12 @@ type SecondArgType<A1, T extends (...args: any) => any> = T extends (arg1: A1, a
 // type PropsType<T extends (...args: any) => any> = T extends (p: infer P, ...args: any) => any ? P : never;
 // type ChildrenType<T extends (...args: any) => any> = T extends (p, children: infer C, ...args: any) => any ? C : never;
 
-function tpl(name: string, props: Props, ...children: any[]): ITemplate;
-function tpl<T extends (props: TProps, ...children: any[]) => TResult, TProps, TResult>(
+export function tpl(name: string, props: Props, ...children: any[]): ITemplate;
+export function tpl<T extends (props: TProps, ...children: any[]) => TResult, TProps, TResult>(
     type: T,
     props: TProps,
     ...children: SecondArgType<TProps, T>): TResult;
-function tpl(name: string | PureComponent, props: Props, ...children: any[]): ITemplate {
+export function tpl(name: string | PureComponent, props: Props, ...children: any[]): ITemplate {
     if (typeof name === "string") {
         return new TagTemplate(name, children && children.map(asTemplate).concat(props ? attributes(props) : []))
     } else if (typeof name === "function") {
@@ -34,7 +34,6 @@ function tpl(name: string | PureComponent, props: Props, ...children: any[]): IT
     async function f() {}
 }
 
-export { tpl }
 export default tpl;
 
 function component(type, props, children) {
