@@ -1,7 +1,7 @@
 export { tpl as default } from "./views/index.js"
 export { tpl } from "./views/index.js"
 export { DomDriver } from "./views/dom.js"
-export { renderAll } from "./views/driver.js"
+export { renderAll, init } from "./views/driver.js"
 
 // export function renderer(target: HTMLElement) {
 //     return (value: XaniaViewResult) => {
