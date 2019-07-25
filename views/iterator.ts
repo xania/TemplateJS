@@ -1,6 +1,7 @@
-import { ITemplate, IDriver, Binding, renderMany } from "./driver.js"
+import { ITemplate, IDriver, Binding } from "./driver.js"
 import { IExpression } from "./expression.js"
 import arrayComparer from "storejs/src/array-comparer";
+import { renderMany } from "./index.js";
 
 type IteratorProps<T> = { source: IExpression<T[]> | T[] }
 

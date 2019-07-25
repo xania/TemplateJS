@@ -1,4 +1,3 @@
-import { asTemplate } from "templatejs/views";
 
 declare type Subscription = { unsubscribe() };
 declare type Observer<T> = (value: T) => any;
@@ -55,60 +54,6 @@ export interface Binding {
     children?: ITemplate[];
     driver?(): IDriver;
     dispose();
-}
-
-export function renderAll(rootDriver: IDriver, rootTpl: ITemplate) {
-    var bindings = renderStack([{ driver: rootDriver, template: rootTpl }]);
-
-    return {
-        dispose() {
-            for (var i = 0; i < bindings.length; i++) {
-                bindings[i].dispose();
-            }
-            // conditionalDriver.dispose();
-        }
-    }
-}
-
-type StackItem = { driver: IDriver, template: ITemplate };
-export function renderStack(stack: StackItem[]) {
-    const bindings = [];
-
-    while (stack.length) {
-        const { driver, template } = stack.pop();
-        const binding = template.render(driver);
-        if (binding) {
-            bindings.push(binding);
-            if (binding.driver) {
-                const { children } = template;
-                if (children) {
-                    var childDriver = binding.driver();
-                    if (childDriver) {
-                        for (var i = children.length - 1; i >= 0; i--) {
-                            stack.push({ driver: childDriver, template: asTemplate(children[i]) });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for (var i = 0; i < bindings.length; i++) {
-        const binding = bindings[i];
-        if (binding['ready'])
-            binding.ready();
-    }
-
-    return bindings;
-}
-
-export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
-    var stack = children.map(template => ({
-        driver,
-        template
-    }))
-
-    return renderStack(stack);
 }
 
 export function init(view: ITemplate, callback) {
