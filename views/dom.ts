@@ -356,8 +356,7 @@ function toString(value) {
     return value.toString();
 }
 
-
-function isDomNode(obj): obj is HTMLElement {
+export function isDomNode(obj): obj is HTMLElement {
     try {
         //Using W3 DOM2 (works for FF, Opera and Chrome)
         return obj instanceof HTMLElement;

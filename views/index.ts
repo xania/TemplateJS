@@ -12,26 +12,68 @@ type SecondArgType<A1, T extends (...args: any) => any> = T extends (arg1: A1, a
 // type PropsType<T extends (...args: any) => any> = T extends (p: infer P, ...args: any) => any ? P : never;
 // type ChildrenType<T extends (...args: any) => any> = T extends (p, children: infer C, ...args: any) => any ? C : never;
 
+type TemplateElement = Primitive | IExpression<Primitive> | string | PureComponent | ITemplate | { view: TemplateElement } | HTMLElement;
+type TemplateInput = TemplateElement | TemplateElement[];
+
 export function tpl(name: string, props: Props, ...children: any[]): ITemplate;
 export function tpl<T extends (props: TProps, ...children: any[]) => TResult, TProps, TResult>(
-    type: T,
+    name: T,
     props: TProps,
     ...children: SecondArgType<TProps, T>): TResult;
-export function tpl(name: string | PureComponent, props: Props, ...children: any[]): ITemplate {
-    if (typeof name === "string") {
+export function tpl(name: TemplateInput, props: Props, ...children: any[]): ITemplate {
+    if (typeof name === "undefined" || name === null) {
+        return __emptyTemplate;
+    }
+    else if (Array.isArray(name)) {
+        return new FragmentTemplate(flatTree(name).map(asTemplate))
+    }
+    else if (typeof name === "string") {
         return new TagTemplate(name, children && children.map(asTemplate).concat(props ? attributes(props) : []))
-    } else if (typeof name === "function") {
+    }
+    else if (typeof name === "function") {
         if (name.constructor === f.constructor) {
             return name(props, children);
-        } else 
+        } else
             return component(name, props, children);
-    } else if (Array.isArray(name)) {
-        return new FragmentTemplate((name as any[]).map(asTemplate))
-    } else {
-        throw Error("not supported")
     }
+    else if (isTemplate(name))
+        return name;
+    else if (isPromise(name))
+        return new TemplatePromise(name);
+    else if (isSubscribable(name))
+        return new TemplateObservable(name);
+    else if (isSubscription(name))
+        return new TemplateSubscription(name);
+    else if (hasProperty(name, 'view'))
+        return asTemplate(name.view);
 
-    async function f() {}
+    return new NativeTemplate(name);
+    // else {
+    //     throw Error("not supported")
+    // }
+
+    async function f() { }
+}
+
+function flatTree(tree: any[]) {
+    var retval: ITemplate[] = [];
+    var stack = tree.reverse();
+
+    while (stack.length > 0) {
+        var curr = stack.pop();
+        if (Array.isArray(curr)) {
+            for (let i = curr.length - 1; i >= 0; i--) {
+                stack.push(curr[i]);
+            }
+        } else {
+            retval.push(curr);
+        }
+    }
+    return retval;
+}
+
+function hasProperty<T, P extends string>(obj: T, prop: P): obj is { [ K in ( keyof T | P ) ]: any } {
+    return true;
 }
 
 export default tpl;
@@ -152,20 +194,20 @@ const __emptyTemplate: ITemplate = {
     }
 }
 
-export function asTemplate(item: any): ITemplate {
-    if (typeof item === "undefined" || item === null) {
+export function asTemplate(name: any): ITemplate {
+    if (typeof name === "undefined" || name === null) {
         return __emptyTemplate;
     }
-    else if (typeof item.render === "function")
-        return item;
-    else if (typeof item === "function")
-        return functionAsTemplate(item);
-    else if (Array.isArray(item)) {
+    else if (typeof name.render === "function")
+        return name;
+    else if (typeof name === "function")
+        return functionAsTemplate(name);
+    else if (Array.isArray(name)) {
         var flat: ITemplate[] = [];
         var stack = [];
 
-        for (let i = item.length - 1; i >= 0; i--) {
-            stack.push(item[i]);
+        for (let i = name.length - 1; i >= 0; i--) {
+            stack.push(name[i]);
         }
 
         while (stack.length > 0) {
@@ -180,16 +222,16 @@ export function asTemplate(item: any): ITemplate {
         }
         return new FragmentTemplate(flat);
     }
-    else if (isPromise(item))
-        return new TemplatePromise(item);
-    else if (isSubscribable(item))
-        return new TemplateObservable(item);
-    else if (isSubscription(item))
-        return new TemplateSubscription(item);
-    else if (item.view !== null && typeof item.view !== "undefined")
-        return asTemplate(item.view);
+    else if (isPromise(name))
+        return new TemplatePromise(name);
+    else if (isSubscribable(name))
+        return new TemplateObservable(name);
+    else if (isSubscription(name))
+        return new TemplateSubscription(name);
+    else if (name.view !== null && typeof name.view !== "undefined")
+        return asTemplate(name.view);
 
-    return new NativeTemplate(item);
+    return new NativeTemplate(name);
 }
 
 function isSubscribable(value): value is Subscribable {
@@ -240,7 +282,7 @@ class TagTemplate implements ITemplate {
 }
 
 class NativeTemplate implements ITemplate {
-    constructor(public value: Primitive | IExpression<Primitive>) {
+    constructor(public value: Primitive | IExpression<Primitive> | HTMLElement) {
     }
 
     render(driver: IDriver): Binding {
@@ -251,7 +293,7 @@ class NativeTemplate implements ITemplate {
         }
         else if (isSubscribable(value)) {
             let expr = value;
-            let textElement = driver.createNative(expr.value);
+            let textElement = driver.createNative(null);
             expr.subscribe(textElement as any);
             return textElement;
         }
