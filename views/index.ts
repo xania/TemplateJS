@@ -1,5 +1,6 @@
 import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive } from './driver.js';
 import { IExpression } from "./expression.js"
+import { isDomNode, DomDriver } from './dom.js';
 
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
@@ -121,7 +122,7 @@ export class TemplateObservable<T> implements ITemplate {
                 if (binding) {
                     binding.dispose();
                 }
-                binding = renderAll(scopeDriver, asTemplate(value));
+                binding = render(scopeDriver, asTemplate(value));
             }
         );
 
@@ -148,13 +149,13 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
         var disposed = false;
         var loaded = false;
         var loadingBinding = null;
-        const promise =  this.promise;
+        const promise = this.promise;
 
-        setTimeout(function() {
+        setTimeout(function () {
             if (loaded || disposed)
                 return;
 
-            loadingBinding = renderAll(scopeDriver, tpl("div", { "class": "loading-placeholder" }))
+            loadingBinding = render(scopeDriver, tpl("div", { "class": "loading-placeholder" }))
             promise.then(_ => {
                 loadingBinding.dispose();
             })
@@ -163,7 +164,7 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
         const bindingPromise = promise.then(item => {
             loaded = true;
             const template = asTemplate(item);
-            return disposed ? null : renderAll(scopeDriver, template);
+            return disposed ? null : render(scopeDriver, template);
         })
         return {
             driver() {
@@ -319,15 +320,15 @@ class Attribute implements ITemplate {
 }
 
 
-export function renderAll(rootDriver: IDriver, rootTpl: ITemplate) {
-    var bindings = renderStack([{ driver: rootDriver, template: rootTpl }]);
+export function render(target: IDriver | HTMLElement, template: ITemplate) {
+    const driver = isDomNode(target) ? new DomDriver(target) : target
+    var bindings = renderStack([{ driver, template }]);
 
     return {
         dispose() {
             for (var i = 0; i < bindings.length; i++) {
                 bindings[i].dispose();
             }
-            // conditionalDriver.dispose();
         }
     }
 }
