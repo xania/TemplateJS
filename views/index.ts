@@ -142,24 +142,48 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
         return this.promise.then(fn);
     }
 
-    render(driver: IDriver, ...args: any[]): Binding {
+    render(driver: IDriver): Binding {
         var scope = driver.createScope("promise");
         var scopeDriver = scope.driver();
-        const bindingPromise = this.promise.then(item => {
+        var disposed = false;
+        var loaded = false;
+        var loadingBinding = null;
+        const promise =  this.promise;
+
+        setTimeout(function() {
+            if (loaded || disposed)
+                return;
+
+            loadingBinding = renderAll(scopeDriver, tpl("div", { "class": "loading-placeholder" }))
+            promise.then(_ => {
+                loadingBinding.dispose();
+            })
+        }, 200);
+
+        const bindingPromise = promise.then(item => {
+            loaded = true;
             const template = asTemplate(item);
-            return renderAll(scope.driver(), template);
+            return disposed ? null : renderAll(scopeDriver, template);
         })
         return {
             driver() {
                 return scopeDriver;
             },
             dispose() {
-                // dispose
-                bindingPromise.then(binding => binding.dispose());
+                disposed = true;
+                bindingPromise.then(binding => binding && binding.dispose());
                 scope.dispose();
             }
         }
     }
+}
+
+function delay<T>(value: T, ms: number) {
+    return new Promise<T>(resolve => {
+        setTimeout(function () {
+            resolve(value);
+        }, ms);
+    })
 }
 
 export function attributes(props: Props) {
