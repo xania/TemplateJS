@@ -7,6 +7,7 @@ declare type Observer = (value) => any;
 declare type Subscribable = { subscribe: (observer: Observer) => Subscription };
 declare type PureComponent = (...args: any) => any
 declare type Func<T> = (arg: T) => any;
+declare type Attachable = { attach: (dom: HTMLElement) => { dispose(): any }  }
 
 type TemplateElement = Primitive | IExpression<Primitive> | string | PureComponent | ITemplate | { view: TemplateElement } | HTMLElement;
 type TemplateInput = TemplateElement | TemplateElement[];
@@ -94,6 +95,15 @@ export class EmptyTemplate implements ITemplate {
     }
 }
 
+class TemplateAttachable implements ITemplate {
+
+    constructor(private attachable: Attachable) {
+    }
+
+    render(driver: DomDriver) {
+        return this.attachable.attach(driver.target);
+    }
+}
 class TemplateSubscription implements ITemplate {
 
     constructor(private subscription: Subscription) {
@@ -216,10 +226,16 @@ export function asTemplate(name: any): ITemplate {
         return new TemplateObservable(name);
     else if (isSubscription(name))
         return new TemplateSubscription(name);
+    else if (isAttachable(name))
+        return new TemplateAttachable(name);
     else if (hasProperty(name, 'view'))
         return asTemplate(name.view);
 
     return new NativeTemplate(name);
+}
+
+function isAttachable(value): value is Attachable {
+    return value && typeof value.attach === "function";
 }
 
 function isSubscribable(value): value is Subscribable {
