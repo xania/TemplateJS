@@ -47,7 +47,8 @@ class IteratorTemplate<T> implements ITemplate {
                 for (var i = 0; i < mutations.length; i++) {
                     var mut = mutations[i];
                     if (mut.type === "insert") {
-                        var item: IExpression<T> = source.property(mut.index, true);
+                        // TODO asProxy is assumed but needs to be typesafe
+                        var item: any = (source.property(mut.index, true) as any).asProxy();
                         var itemBindings = renderMany(scopeDriver, itemTemplates.map(template => template(item)));
                         itemBindings.push(item);
                         bindings.splice(mut.index, 0, itemBindings);
