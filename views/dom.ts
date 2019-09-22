@@ -315,6 +315,12 @@ function createAttribute(target, name: string, value: Primitive) {
     function valueAttribute(value: string) {
         if (value === null || value === undefined)
             target.value = "";
+        else if (target.type === 'date') {
+            var d = new Date(value);
+            // ensure GMT timezone
+            // https://austinfrance.wordpress.com/2012/07/09/html5-date-input-field-and-valueasdate-timezone-gotcha-3/
+            target.valueAsDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+        }
         else
             target.value = value;
     }
