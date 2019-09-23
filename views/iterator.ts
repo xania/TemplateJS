@@ -65,7 +65,7 @@ class IteratorTemplate<T> implements ITemplate {
                     }
                 }
 
-                return value ? value.slice(0) : [];
+                return value && value.slice ? value.slice(0) : [ value ];
             });
 
             return {
