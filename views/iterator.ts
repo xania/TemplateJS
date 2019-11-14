@@ -3,7 +3,7 @@ import { IExpression } from "./expression.js"
 import arrayComparer from "storejs/src/array-comparer";
 import { renderMany } from "./index.js";
 
-type IteratorProps<T> = { source: IExpression<T[]> | T[] }
+type IteratorProps<T> = { source: IExpression<T[]> | T[] | PromiseLike<T[]> }
 
 type ItemTemplate = (child: any) => any;
 
@@ -12,7 +12,7 @@ export default function Iterator<T>(props: IteratorProps<T>, itemTemplates: Item
 }
 
 class IteratorTemplate<T> implements ITemplate {
-    constructor(public source: IExpression<T[]> | T[], public itemTemplates: ItemTemplate[]) {
+    constructor(public source: IExpression<T[]> | T[] | PromiseLike<T[]>, public itemTemplates: ItemTemplate[]) {
     }
 
     render(driver: IDriver): Binding {
@@ -23,9 +23,9 @@ class IteratorTemplate<T> implements ITemplate {
         const scope = driver.createScope("-- List Boundary --");
         const scopeDriver = scope.driver();
 
-        if (Array.isArray(source)) {
+        function bindArray(arr: T[]) {
             const bindings = [];
-            const itemBindings = source.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
+            const itemBindings = arr.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
             for (var e = 0; e < itemBindings.length; e++) {
                 bindings.push(itemBindings[e]);
             }
@@ -36,6 +36,12 @@ class IteratorTemplate<T> implements ITemplate {
                     }
                 }
             }
+        }
+
+        if (Array.isArray(source)) {
+            bindArray(source);
+        } else if (isPromise(source)) {
+            source.then(bindArray);
         } else {
             const bindings: Binding[][] = [];
             const observer = source.lift((value, prevValue) => {
@@ -81,4 +87,8 @@ class IteratorTemplate<T> implements ITemplate {
             }
         }
     }
+}
+
+function isPromise(value): value is PromiseLike<unknown> {
+    return !!value && typeof value.subscribe !== 'function' && typeof value.then === 'function';
 }
