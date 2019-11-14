@@ -5,7 +5,7 @@ import { renderMany } from "./index.js";
 
 type IteratorProps<T> = { source: IExpression<T[]> | T[] | PromiseLike<T[]> }
 
-type ItemTemplate = (child: any) => any;
+type ItemTemplate = (child: any, idx?: number) => any;
 
 export default function Iterator<T>(props: IteratorProps<T>, itemTemplates: ItemTemplate[]): IteratorTemplate<T> {
     return new IteratorTemplate<T>(props.source, itemTemplates);
@@ -25,7 +25,7 @@ class IteratorTemplate<T> implements ITemplate {
 
         function bindArray(arr: T[]) {
             const bindings = [];
-            const itemBindings = arr.map(item => renderMany(scopeDriver, itemTemplates.map(template => template(item))));
+            const itemBindings = arr.map((item, index) => renderMany(scopeDriver, itemTemplates.map(template => template(item, index))));
             for (var e = 0; e < itemBindings.length; e++) {
                 bindings.push(itemBindings[e]);
             }
@@ -54,8 +54,9 @@ class IteratorTemplate<T> implements ITemplate {
                     var mut = mutations[i];
                     if (mut.type === "insert") {
                         // TODO asProxy is assumed but needs to be typesafe
-                        var item: any = (source.property(mut.index, true) as any).asProxy();
-                        var itemBindings = renderMany(scopeDriver, itemTemplates.map(template => template(item)));
+                        var index = mut.index;
+                        var item: any = (source.property(index, true) as any).asProxy();
+                        var itemBindings = renderMany(scopeDriver, itemTemplates.map(template => template(item, index)));
                         itemBindings.push(item);
                         bindings.splice(mut.index, 0, itemBindings);
                     } else if (mut.type === "remove") {
