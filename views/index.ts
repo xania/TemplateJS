@@ -14,7 +14,7 @@ type TemplateInput = TemplateElement | TemplateElement[];
 
 export function tpl(name: TemplateInput, props: Props = null, ...children: any[]): ITemplate {
     if (typeof name === "string") {
-        return new TagTemplate(name, children && children.map(asTemplate).concat(props ? attributes(props) : []))
+        return new TagTemplate(name, children && children.filter(isNotNull).map(asTemplate).concat(props ? attributes(props) : []))
     }
 
     if (typeof name === "function") {
@@ -24,6 +24,10 @@ export function tpl(name: TemplateInput, props: Props = null, ...children: any[]
     }
 
     return asTemplate(name);
+
+    function isNotNull(value) {
+        return value !== null && value !== undefined;
+    }
 }
 
 function construct(func, args: any[]) {
@@ -355,6 +359,8 @@ export function renderStack(stack: StackItem[]) {
 
     while (stack.length) {
         const { driver, template } = stack.pop();
+        if (template === null || template === undefined)
+            continue;
         const binding = template.render(driver);
         if (binding) {
             bindings.push(binding);
