@@ -21,11 +21,15 @@ export class DomDriver implements IDriver {
         return createScope(this, name);
     }
 
-    createEvent(name, value: Function | Executable<any>) {
+    createEvent(name: string, value: Function | Executable<any>) {
         if (!value)
             return __emptyBinding;
 
         const { target } = this;
+
+        if (! (("on" + name.toLocaleLowerCase()) in target) ) {
+            console.error("not a valid event " + name);
+        }
 
         if (typeof value === "function")
             target.addEventListener(name, value);

@@ -30,6 +30,24 @@ export function tpl(name: TemplateInput, props: Props = null, ...children: any[]
     }
 }
 
+export function lazy<T>(fn: () => T) {
+    return {
+        subscribe(observer) {
+            var value = fn();
+            if (isSubscribable(value)) {
+                return value.subscribe(observer);
+            }
+            observer.next(value);
+            return {
+                unsubscribe() {
+                    debugger;
+                }
+            }
+        }
+    };
+}
+
+
 function construct(func, args: any[]) {
     try {
         if (!func) return false;
