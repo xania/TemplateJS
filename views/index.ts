@@ -348,8 +348,16 @@ class Attribute implements ITemplate {
         else if (isSubscribable(value)) {
             let expr = value;
             let attrElement = driver.createAttribute(name, expr.value);
-            expr.subscribe(attrElement as any);
-            return attrElement;
+            const subscr = expr.subscribe(attrElement as any);
+            if (!subscr || typeof subscr.unsubscribe !== 'function')
+                return attrElement;
+                
+            return {
+                dispose() {
+                    subscr.unsubscribe();
+                    attrElement.dispose();
+                }
+            }
         }
         else {
             return driver.createAttribute(name, value.toString());
