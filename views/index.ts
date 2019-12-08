@@ -373,7 +373,9 @@ export function render(target: IDriver | HTMLElement, template: ITemplate) {
     return {
         dispose() {
             for (var i = 0; i < bindings.length; i++) {
-                bindings[i].dispose();
+                var binding = bindings[i];
+                if (binding && typeof binding.dispose == 'function')
+                    binding.dispose();
             }
         }
     }
