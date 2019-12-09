@@ -44,7 +44,7 @@ class IteratorTemplate<T> implements ITemplate {
             source.then(bindArray);
         } else {
             const bindings: Binding[][] = [];
-            const observer = source.lift((value, prevValue) => {
+            const observer = source.lift((value, prevValue: T[]) => {
                 const mutations = arrayComparer(value, prevValue);
                 if (mutations.length === 0)
                     return prevValue;
@@ -72,7 +72,7 @@ class IteratorTemplate<T> implements ITemplate {
                     }
                 }
 
-                return value && value.slice ? value.slice(0) : [ value ];
+                return Array.isArray(value) ? value.slice(0) : [ value ];
             });
 
             return {
