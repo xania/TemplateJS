@@ -19,24 +19,30 @@ class ConditionalTemplate implements ITemplate {
     render(driver: IDriver): Binding {
         const scopeDriver = driver.createScope("--- conditional ---").driver();
         let inner: Binding[] = null;
-        this.expr.subscribe(visible => {
+        var subscr = this.expr.subscribe(visible => {
             if (visible) {
                 inner = inner || renderMany(scopeDriver, this._children);
             } else if (inner) {
-                for(var i=0 ; i<inner.length ; i++) {
+                for (var i = 0; i < inner.length; i++) {
                     inner[i].dispose();
                 }
                 inner = null;
             }
         });
 
-
         return {
             driver() {
                 return scopeDriver;
             },
             dispose() {
-                // conditionalDriver.dispose();
+                if (subscr && typeof subscr.unsubscribe === 'function')
+                    subscr.unsubscribe();
+                if (Array.isArray(inner)) {
+                    for (var i = 0; i < inner.length; i++) {
+                        inner[i].dispose();
+                    }
+                    inner = null;
+                }
             }
         }
     }

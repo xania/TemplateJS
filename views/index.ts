@@ -152,6 +152,10 @@ export class TemplateObservable<T> implements ITemplate {
         const subscr = observable.subscribe(
             value => {
                 if (binding) {
+                    if (binding.next) {
+                        binding.next(value);
+                        return;
+                    }
                     binding.dispose();
                 }
                 binding = render(scopeDriver, asTemplate(value));
@@ -162,6 +166,7 @@ export class TemplateObservable<T> implements ITemplate {
             dispose() {
                 subscr.unsubscribe();
                 scope.dispose();
+                binding && binding.dispose();
             }
         }
     }
@@ -371,6 +376,13 @@ export function render(target: IDriver | HTMLElement, template: ITemplate) {
     var bindings = renderStack([{ driver, template }]);
 
     return {
+        next(value) {
+            for (var i = 0; i < bindings.length; i++) {
+                var binding = bindings[i];
+                if (binding && typeof binding.next == 'function')
+                    binding.next(value);
+            }
+        },
         dispose() {
             for (var i = 0; i < bindings.length; i++) {
                 var binding = bindings[i];
@@ -419,7 +431,7 @@ export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
     var stack = children.map(template => ({
         driver,
         template
-    }))
+    })).reverse();
 
     return renderStack(stack);
 }

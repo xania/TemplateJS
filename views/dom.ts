@@ -219,9 +219,13 @@ export class DomDriver implements IDriver {
     // }
 }
 
-function createScope(parent: DomDriver, name: string) {
+function createScope(parent: DomDriver, name: string, parentScopeNode?: Comment) {
     let commentNode = document.createComment(name);
-    parent.appendChild(commentNode);
+
+    if (parentScopeNode)
+        parent.target.insertBefore(commentNode, parentScopeNode);
+    else
+        parent.appendChild(commentNode);
 
     return {
         parent,
@@ -270,7 +274,7 @@ function createScope(parent: DomDriver, name: string) {
                     }
                 },
                 createScope(name) {
-                    return createScope(parent, name);
+                    return createScope(parent, name, commentNode);
                 }
             }
         },
