@@ -7,14 +7,14 @@ declare type Observer = (value) => any;
 declare type Subscribable = { subscribe: (observer: Observer) => Subscription };
 declare type PureComponent = (...args: any) => any
 declare type Func<T> = (arg: T) => any;
-declare type Attachable = { attach: (dom: HTMLElement) => { dispose(): any }  }
+declare type Attachable = { attach: (dom: HTMLElement) => { dispose(): any } }
 
 type TemplateElement = Primitive | IExpression<Primitive> | string | PureComponent | ITemplate | { view: TemplateElement } | HTMLElement;
 type TemplateInput = TemplateElement | TemplateElement[];
 
-export function tpl(name: TemplateInput, props: Props = null, ...children: any[]): ITemplate {
+export function tpl(name: TemplateInput, props: Props = null, ...children: any[]): ITemplate | ITemplate[] {
     if (typeof name === "string") {
-        return new TagTemplate(name, children && children.filter(isNotNull).map(asTemplate).concat(props ? attributes(props) : []))
+        return new TagTemplate(name, flatTree(children, asTemplate).concat(props ? attributes(props) : []));
     }
 
     if (typeof name === "function") {
@@ -59,18 +59,25 @@ function construct(func, args: any[]) {
 }
 
 
-function flatTree(tree: any[]) {
+export function flatTree(tree: any[], project: (item: any) => any | any[]) {
+    if (!Array.isArray(tree))
+        return [];
+
     var retval: ITemplate[] = [];
     var stack = tree.reverse();
 
     while (stack.length > 0) {
         var curr = stack.pop();
         if (Array.isArray(curr)) {
-            for (let i = curr.length - 1; i >= 0; i--) {
-                stack.push(curr[i]);
+            stack.push.apply(stack, curr.reverse());
+        } else if (curr !== null && curr !== undefined) {
+            const projected = project(curr);
+            if (Array.isArray(projected)) {
+                retval.push.apply(retval, projected);
             }
-        } else {
-            retval.push(curr);
+            else {
+                retval.push(projected);
+            }
         }
     }
     return retval;
@@ -89,6 +96,7 @@ function component(type, props, children) {
 
 export class FragmentTemplate implements ITemplate {
     constructor(public children?: ITemplate[]) {
+        debugger;
     }
 
     render(driver: IDriver) {
@@ -236,7 +244,7 @@ const __emptyTemplate: ITemplate = {
     }
 }
 
-export function asTemplate(name: any): ITemplate {
+export function asTemplate(name: any): ITemplate | ITemplate[] {
     if (typeof name === "undefined" || name === null) {
         return __emptyTemplate;
     }
@@ -245,7 +253,7 @@ export function asTemplate(name: any): ITemplate {
     else if (typeof name === "function")
         return functionAsTemplate(name);
     else if (Array.isArray(name)) {
-        return new FragmentTemplate(flatTree(name).map(asTemplate))
+        return flatTree(name, asTemplate);
     }
     else if (isPromise(name))
         return new TemplatePromise(name);
@@ -285,7 +293,22 @@ function functionAsTemplate(func: Function): ITemplate {
     return {
         render(driver: IDriver, ...args) {
             const tpl = func(...args);
-            return asTemplate(tpl).render(driver);
+            var template = asTemplate(tpl);
+            if (Array.isArray(template)) {
+                const bindings = [];
+                for(let i=0 ; i<template.length ; i++) {
+                    bindings.push(template[i].render(driver));
+                }
+                return {
+                    dispose() {
+                        for(let i=0 ; i<bindings.length ; i++) {
+                            bindings[i].dispose();
+                        }
+                    }
+                }
+            } else {
+                return template.render(driver);
+            }
         }
     }
 }
@@ -356,7 +379,7 @@ class Attribute implements ITemplate {
             const subscr = expr.subscribe(attrElement as any);
             if (!subscr || typeof subscr.unsubscribe !== 'function')
                 return attrElement;
-                
+
             return {
                 dispose() {
                     subscr.unsubscribe();
@@ -371,7 +394,7 @@ class Attribute implements ITemplate {
 }
 
 
-export function render(target: IDriver | HTMLElement, template: ITemplate) {
+export function render(target: IDriver | HTMLElement, template: ITemplate | ITemplate[]) {
     const driver = isDomNode(target) ? new DomDriver(target) : target
     var bindings = renderStack([{ driver, template }]);
 
@@ -393,7 +416,7 @@ export function render(target: IDriver | HTMLElement, template: ITemplate) {
     }
 }
 
-type StackItem = { driver: IDriver, template: ITemplate };
+type StackItem = { driver: IDriver, template: ITemplate | ITemplate[] };
 export function renderStack(stack: StackItem[]) {
     const bindings = [];
 
@@ -401,6 +424,14 @@ export function renderStack(stack: StackItem[]) {
         const { driver, template } = stack.pop();
         if (template === null || template === undefined)
             continue;
+
+        if (Array.isArray(template)) {
+            for (let i = template.length - 1; i >= 0; i--) {
+                stack.push({driver, template: template[i]})
+            }
+            continue;
+        }
+
         const binding = template.render(driver);
         if (binding) {
             bindings.push(binding);
@@ -431,7 +462,7 @@ export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
     var stack = children.map(template => ({
         driver,
         template
-    })).reverse();
+    }));
 
     return renderStack(stack);
 }

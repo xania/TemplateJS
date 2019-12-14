@@ -1,9 +1,9 @@
 import { ITemplate, IDriver, Binding, BindingValue, isSubscribable, Subscribable } from "./driver.js"
-import { asTemplate, FragmentTemplate, EmptyTemplate, renderMany } from "./index.js";
+import { asTemplate, FragmentTemplate, EmptyTemplate, renderMany, flatTree } from "./index.js";
 
 export default function If(props: { condition: BindingValue<boolean> }, children: ITemplate[]) {
     if (isSubscribable(props.condition)) {
-        return new ConditionalTemplate(props.condition, children.map(asTemplate));
+        return new ConditionalTemplate(props.condition, flatTree(children, asTemplate));
     } else {
         if (props.condition)
             return new FragmentTemplate(children);
