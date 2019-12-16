@@ -28,7 +28,7 @@ export interface TextElement {
 }
 
 export interface ScopeElement {
-    driver(): IDriver;
+    driver(index?: number): IDriver;
     dispose();
 }
 

@@ -276,7 +276,7 @@ function createScope(parent: DomDriver, name: string, parentScopeNode?: Comment)
                 createScope(name) {
                     return createScope(parent, name, commentNode);
                 }
-            }
+            };
         },
         dispose() {
             commentNode.remove();
