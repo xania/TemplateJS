@@ -12,17 +12,37 @@ type ListSource<T> =
     };
 
 type ItemTemplate<T> = (context: ProxyOf<T>, dispose: () => void) => ITemplate[];
-export default function List<T>(props: { source: ListSource<T> }, children: ItemTemplate<T>[]) {
+export default function List<T>(props: { source: ListSource<T> | T[] }, children: ItemTemplate<T>[]) {
     return {
         render(driver: IDriver) {
             const { source } = props;
+            const childBindings: Binding[][] = [];
+            const childContexts: ListItem<T>[] = [];
+
+            if (source === null || source === undefined )
+                return null;
+
+            if (Array.isArray(source)) {
+                const allBindings: Binding[] = [];
+                for(let i=0 ; i<source.length ; i++) {
+                    const context = new ListItem<T>(null, source, source[i]);
+                    const bindings = renderStack(
+                        flatTree(children, asProxy(context)).map(template => ({ driver, template })).reverse()
+                    );
+                    allBindings.push.apply(allBindings, bindings);
+                }
+                return {
+                    dispose() {
+                        for(let i=0 ; i<allBindings.length ; i++) {
+                            allBindings[i].dispose();
+                        }
+                    }
+                }
+            }
 
             const scope = driver.createScope('--- Array ---');
             const scopeDriver = scope.driver();
 
-            const childBindings: Binding[][] = [];
-            const childContexts: ListItem<T>[] = [];
-            
             const liftBinding = source.lift((newArray, prevArray: T[] = []) => {
                 const mutations = arrayComparer(newArray, prevArray);
                 for (var i = 0; i < mutations.length; i++) {
