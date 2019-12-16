@@ -1,13 +1,16 @@
 import { ITemplate, Binding, IDriver } from "./driver";
-import arrayComparer from "storejs/src/array-comparer";
-import Store, { ProxyOf, flush, refresh } from "storejs"
+import arrayComparer, { move } from "storejs/src/array-comparer";
+import { ProxyOf, IExpression, asProxy, ListItem } from "storejs"
 import { renderStack, asTemplate } from "templatejs/views";
 
 type Disposable = { dispose(): any };
-type ListSource<T> = {
-    value?: T[],
-    lift<U>(comparer: (newValue: T[], oldValue: U) => U): Disposable
-};
+type ListSource<T> =
+    {
+        value?: T[],
+        lift<U>(comparer: (newValue: T[], oldValue: U) => U): Disposable,
+        properties: IExpression<T>[];
+    };
+
 type ItemTemplate<T> = (context: ProxyOf<T>, dispose: () => void) => ITemplate[];
 export default function List<T>(props: { source: ListSource<T> }, children: ItemTemplate<T>[]) {
     return {
@@ -18,7 +21,11 @@ export default function List<T>(props: { source: ListSource<T> }, children: Item
             const scopeDriver = scope.driver();
 
             const childBindings: Binding[][] = [];
-            const childContexts: ProxyOf<T>[] = [];
+            const childContexts: ListItem<T>[] = [];
+
+            function elementsChanged() {
+                console.log(arguments);
+            }
 
             const liftBinding = source.lift((newArray, prevArray: T[] = []) => {
                 const mutations = arrayComparer(newArray, prevArray);
@@ -27,49 +34,31 @@ export default function List<T>(props: { source: ListSource<T> }, children: Item
                     if (mut.type === 'insert') {
                         const { index } = mut;
                         const childValue = newArray[index];
-                        const context = new Store<T>(childValue).asProxy();
-                        prevArray[index] = childValue;
-                        childContexts[index] = context;
+                        const context = new ListItem<T>(source, prevArray, childValue);
+                        prevArray.splice(index, 0, childValue);
+                        childContexts.splice(index, 0, context);
 
-                        const args = [context, dispose];
-                        childBindings[index] = renderStack(
-                            flatTree(children, args).map(template => ({ driver: scopeDriver, template })).reverse()
+                        const bindings = renderStack(
+                            flatTree(children, asProxy(context)).map(template => ({ driver: scopeDriver, template })).reverse()
                         );
-
-                        function dispose() {
-                            const idx = childContexts.indexOf(context);
-                            // removeItem(newArray, childValue);
-                            // const idx = removeItem(prevArray, childValue);
-                            if (idx >= 0) {
-                                const bindings = childBindings[idx];
-
-                                childContexts.splice(idx, 1);
-                                childBindings.splice(idx, 1);
-                                prevArray.splice(idx, 1);
-                                newArray.splice(idx, 1);
-
-                                for (let b = 0; b < bindings.length; b++) {
-                                    bindings[b].dispose();
-                                }
-
-                                refresh(source);
-                            }
-                        }
+                        childBindings.splice(index, 0, bindings);
                     }
                     else if (mut.type === 'remove') {
                         const { index } = mut;
                         const bindings = childBindings.splice(index, 1)[0];
-                        for (var e = 0; e < bindings.length; e++) {
-                            bindings[e].dispose();
+                        if (bindings) {
+                            for (var e = 0; e < bindings.length; e++) {
+                                bindings[e].dispose();
+                            }
                         }
                         prevArray.splice(index, 1);
                         childContexts.splice(index, 1);
                     }
                     else if (mut.type === 'move') {
                         const { from, to } = mut;
-                        swap(prevArray, from, to);
-                        swap(childContexts, from, to);
-                        swap(childBindings, from, to);
+                        move(prevArray, from, to);
+                        move(childContexts, from, to);
+                        move(childBindings, from, to);
                     }
                 }
                 return prevArray;
@@ -89,7 +78,7 @@ export default function List<T>(props: { source: ListSource<T> }, children: Item
         }
     }
 
-    function flatTree<T>(source: T[], args: any[]): ITemplate[] {
+    function flatTree<T>(source: T[], context: any): ITemplate[] {
         const stack = [source as any];
         const result: ITemplate[] = [];
 
@@ -100,7 +89,7 @@ export default function List<T>(props: { source: ListSource<T> }, children: Item
                     stack.push(curr[i]);
                 }
             } else if (typeof curr === 'function') {
-                const retval = curr.apply(curr, args);
+                const retval = curr.call(curr, context);
                 stack.push(retval);
             } else {
                 result.push(asTemplate(curr) as ITemplate);
