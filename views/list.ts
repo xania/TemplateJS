@@ -1,6 +1,6 @@
 import { ITemplate, Binding, IDriver } from "./driver";
 import arrayComparer, { move } from "storejs/src/array-comparer";
-import { ProxyOf, IExpression, asProxy, ListItem } from "storejs"
+import { ProxyOf, IExpression, asProxy, ListItem, refresh } from "storejs"
 import { renderStack, asTemplate } from "templatejs/views";
 
 type Disposable = { dispose(): any };
@@ -22,11 +22,7 @@ export default function List<T>(props: { source: ListSource<T> }, children: Item
 
             const childBindings: Binding[][] = [];
             const childContexts: ListItem<T>[] = [];
-
-            function elementsChanged() {
-                console.log(arguments);
-            }
-
+            
             const liftBinding = source.lift((newArray, prevArray: T[] = []) => {
                 const mutations = arrayComparer(newArray, prevArray);
                 for (var i = 0; i < mutations.length; i++) {
@@ -59,6 +55,10 @@ export default function List<T>(props: { source: ListSource<T> }, children: Item
                         move(prevArray, from, to);
                         move(childContexts, from, to);
                         move(childBindings, from, to);
+                    } else if (mut.type === 'update') {
+                        const { index } = mut;
+                        const context = childContexts[index];
+                        context.update(newArray[index]);
                     }
                 }
                 return prevArray;
