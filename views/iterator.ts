@@ -20,8 +20,7 @@ class IteratorTemplate<T> implements ITemplate {
         const { itemTemplates } = this;
         // const childrenLength = children.length;
 
-        const scope = driver.createScope("-- List Boundary --");
-        const scopeDriver = scope.driver();
+        const scopeDriver = driver.createScope();
 
         function bindArray(arr: T[]) {
             const bindings = [];

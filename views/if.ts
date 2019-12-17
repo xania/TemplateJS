@@ -17,7 +17,7 @@ class ConditionalTemplate implements ITemplate {
     }
 
     render(driver: IDriver): Binding {
-        const scopeDriver = driver.createScope("--- conditional ---").driver();
+        const scopeDriver = driver.createScope();
         let inner: Binding[] = null;
         var subscr = this.expr.subscribe(visible => {
             if (visible) {

@@ -1,10 +1,13 @@
 import { IDriver, Primitive, Executable, ScopeElement } from "./driver"
+import { last } from "rxjs/operators";
 
+const children = Symbol('children');
 const __emptyBinding = { dispose() { } };
 export class DomDriver implements IDriver {
     public target;
-    private domElements = [];
+    public domElements = [];
     private events: { eventName: string, eventBinding: any, dom: any }[] = [];
+    [children]: Component[] = [];
 
     constructor(target) {
         if (typeof target === "string")
@@ -17,8 +20,18 @@ export class DomDriver implements IDriver {
         return new DomDriver(node);
     }
 
-    createScope(name: string): ScopeElement {
-        return createScope(this, name);
+    createScope(idx?: number): IDriver {
+        // const commentNode = document.createComment(`--- ${name} ---`);
+        // this.target.appendChild(commentNode);
+
+        const scope = createScope(this);
+        if (typeof idx === 'number') {
+            this[children].splice(idx, 0, scope);
+        }
+        else {
+            this[children].push(scope);
+        }
+        return scope;
     }
 
     createEvent(name: string, value: Function | Executable<any>) {
@@ -27,7 +40,7 @@ export class DomDriver implements IDriver {
 
         const { target } = this;
 
-        if (! (("on" + name.toLocaleLowerCase()) in target) ) {
+        if (!(("on" + name.toLocaleLowerCase()) in target)) {
             console.error("not a valid event " + name);
         }
 
@@ -43,6 +56,7 @@ export class DomDriver implements IDriver {
     }
 
     appendChild(child) {
+        this[children].push(child);
         this.target.appendChild(child);
     }
 
@@ -219,69 +233,116 @@ export class DomDriver implements IDriver {
     // }
 }
 
-function createScope(parent: DomDriver, name: string, parentScopeNode?: Comment) {
-    let commentNode = document.createComment(name);
 
-    if (parentScopeNode)
-        parent.target.insertBefore(commentNode, parentScopeNode);
-    else
-        parent.appendChild(commentNode);
+interface Parent {
+    [children]: Component[]
+}
+type Leaf = Comment | HTMLElement;
+type Component = Leaf | Parent;
 
-    return {
-        parent,
-        driver() {
+function createScope(root: DomDriver) {
+    const scope = {
+        [children]: [] as Component[],
+        appendChild(node) {
+            const _children = scope[children];
+            _children.push(node);
+            const refNode = referenceNode(scope);
+            if (refNode)
+                root.target.insertBefore(node, refNode);
+            else
+                root.target.appendChild(node);
+        },
+        createEvent(name, value) {
+            throw new Error("create Event is not (yet) supported");
+        },
+        createAttribute(name, value) {
+            return createAttribute(root.target, name, value);
+        },
+        createElement(name, init) {
+            const tagNode = createElement(root.target, name);
+            this.appendChild(tagNode);
+
             return {
-                createDriver(node) {
-                    return new DomDriver(node);
+                ready() {
+                    init && init(tagNode);
                 },
-                appendChild(node) {
-                    return parent.target.insertBefore(node, commentNode);
+                driver() {
+                    return root.createDriver(tagNode);
                 },
-                createEvent(name, value) {
-                    throw new Error("create Event is not (yet) supported");
-                },
-                createAttribute(name, value) {
-                    return createAttribute(parent.target, name, value);
-                },
-                createElement(name, init) {
-                    const tagNode = createElement(parent.target, name);
-                    const tagDriver = parent.createDriver(tagNode);
-                    this.appendChild(tagNode);
-
-                    return {
-                        ready() {
-                            init && init(tagNode);
-                        },
-                        driver() {
-                            return tagDriver;
-                        },
-                        dispose() {
-                            return tagNode.remove();
-                        }
-                    }
-                },
-                createNative(value: Primitive) {
-                    const textNode = document.createTextNode(value as string);
-                    this.appendChild(textNode);
-
-                    return {
-                        next(value) {
-                            (textNode.nodeValue = value as string);
-                        },
-                        dispose() {
-                            return textNode.remove();
-                        }
-                    }
-                },
-                createScope(name) {
-                    return createScope(parent, name, commentNode);
+                dispose() {
+                    return removeComponent(tagNode);
                 }
-            };
+            }
+        },
+        createNative(value: Primitive) {
+            const textNode = document.createTextNode(value as string);
+            this.appendChild(textNode);
+
+            return {
+                next(value) {
+                    (textNode.nodeValue = value as string);
+                },
+                dispose() {
+                    return removeComponent(textNode);
+                }
+            }
+        },
+        createScope(idx?: number) {
+            // const comment = document.createComment(`-- ${name} --`);
+            // scope.appendChild(comment);
+            const subscope = createScope(root);
+            if (typeof idx === 'number') {
+                scope[children].splice(idx, 0, subscope);
+            } else {
+                scope[children].push(subscope);
+            }
+            return subscope;
         },
         dispose() {
-            commentNode.remove();
+        }
+    };
+
+    function removeComponent(node: Component) {
+        const _children = scope[children];
+        const idx = _children.indexOf(node);
+        if (idx >= 0) {
+            _children.splice(idx, 1);
+        }
+        const stack = [node];
+        while (stack.length > 0) {
+            const curr = stack.pop();
+            if (isParent(curr)) {
+                const _children = curr[children];
+                for (let i = 0; i < _children.length; i++) {
+                    const child = children[i];
+                    stack.push(child);
+                }
+            }
+            else {
+                curr.remove();
+            }
         }
     }
+
+    function referenceNode(component: Component) {
+        const stack = [root as Component];
+        let found = false;
+        while (stack.length) {
+            const curr = stack.pop();
+            if (curr === component) {
+                found = true;
+            } else if (isParent(curr)) {
+                const _children = curr[children];
+                for (let i = _children.length - 1; i >= 0; i--) {
+                    stack.push(_children[i]);
+                }
+            } else if (found === true) {
+                return curr;
+            }
+        }
+    };
+
+    return scope;
 }
 
 function createAttribute(target, name: string, value: Primitive) {
@@ -385,7 +446,7 @@ export function isDomNode(obj): obj is HTMLElement {
     }
 }
 
-function insertNodeAt(parent: { target: HTMLElement } , elements, anchorNode, newElement, index: number) {
+function insertNodeAt(parent: { target: HTMLElement }, elements, anchorNode, newElement, index: number) {
     if (index > elements.length)
         throw new Error("wat doe je?");
     if (elements[index]) {
@@ -398,4 +459,29 @@ function insertNodeAt(parent: { target: HTMLElement } , elements, anchorNode, ne
         parent.target.appendChild(newElement);
         elements[index] = newElement;
     }
+}
+
+function isParent(node: any): node is Parent {
+    if (node == null)
+        return false;
+    if (typeof node === 'object')
+        return children in node;
+    return false;
+}
+
+window['componentTree'] = function (root: Component) {
+    const retval = [];
+    const stack = [{ component: root, result: retval }];
+    while (stack.length) {
+        const { component, result } = stack.pop();
+        if (isParent(component)) {
+            const childResult = [];
+            result.push(children);
+            component[children].forEach(child => stack.push({ component: child, result: childResult }))
+        } else {
+            result.push(component);
+        }
+    }
+
+    return retval;
 }

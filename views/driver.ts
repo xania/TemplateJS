@@ -11,7 +11,8 @@ export interface IDriver {
     createNative(value: any): TextElement;
     createAttribute(name: string, value: any): TextElement;
     createEvent(name: string, value: Executable<any> | Function): TagEvent;
-    createScope(name: string): ScopeElement;
+    createScope(idx?: number): IDriver;
+    dispose(): void;
 }
 
 export interface TagEvent {

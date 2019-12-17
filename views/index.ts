@@ -155,8 +155,7 @@ export class TemplateObservable<T> implements ITemplate {
     render(driver: IDriver): Binding {
         const { observable } = this;
         let binding = null;
-        var scope = driver.createScope("observable");
-        var scopeDriver = scope.driver();
+        var scope = driver.createScope();
         const subscr = observable.subscribe(
             value => {
                 if (binding) {
@@ -166,7 +165,7 @@ export class TemplateObservable<T> implements ITemplate {
                     }
                     binding.dispose();
                 }
-                binding = render(scopeDriver, asTemplate(value));
+                binding = render(scope, asTemplate(value));
             }
         );
 
@@ -189,8 +188,7 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
     }
 
     render(driver: IDriver): Binding {
-        var scope = driver.createScope("promise");
-        var scopeDriver = scope.driver();
+        var scope = driver.createScope();
         var disposed = false;
         var loaded = false;
         var loadingBinding = null;
@@ -200,7 +198,7 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
             if (loaded || disposed)
                 return;
 
-            loadingBinding = render(scopeDriver, tpl("div", { "class": "loading-placeholder" }))
+            loadingBinding = render(scope, tpl("div", { "class": "loading-placeholder" }))
             promise.then(_ => {
                 loadingBinding.dispose();
             })
@@ -209,11 +207,11 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
         const bindingPromise = promise.then(item => {
             loaded = true;
             const template = asTemplate(item);
-            return disposed ? null : render(scopeDriver, template);
+            return disposed ? null : render(scope, template);
         })
         return {
             driver() {
-                return scopeDriver;
+                return scope;
             },
             dispose() {
                 disposed = true;

@@ -1,6 +1,6 @@
 import { ITemplate, Binding, IDriver } from "./driver";
 import arrayComparer, { move } from "storejs/src/array-comparer";
-import { ProxyOf, IExpression, asProxy, ListItem, refresh } from "storejs"
+import { ProxyOf, IExpression, asProxy, ListItem, refresh, digest } from "storejs"
 import { renderStack, asTemplate } from "templatejs/views";
 
 type Disposable = { dispose(): any };
@@ -8,7 +8,7 @@ type ListSource<T> =
     {
         value?: T[],
         lift<U>(comparer: (newValue: T[], oldValue: U) => U): Disposable,
-        properties: IExpression<T>[];
+        properties?: IExpression<T>[];
     };
 
 type ItemTemplate<T> = (context: ProxyOf<T>, dispose: () => void) => ITemplate[];
@@ -31,7 +31,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
     function renderFixed(driver: IDriver, source: T[]) {
         const allBindings: Binding[] = [];
         for (let i = 0; i < source.length; i++) {
-            const context = new ListItem<T>(null, source, source[i]);
+            const context = new ListItem<T>(source[i]);
             const bindings = renderStack(
                 flatTree(children, asProxy(context)).map(template => ({ driver, template })).reverse()
             );
@@ -53,11 +53,11 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
     }
 
     function renderObservable(driver: IDriver, source: ListSource<T>) {
-        const scope = driver.createScope('--- Array ---');
+        const scope = driver.createScope();
 
         const states: ItemState[] = [];
 
-        function referenceEq(x:T, y:T) {
+        function referenceEq(x: T, y: T) {
             return x === y;
         }
 
@@ -68,37 +68,49 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
                 if (mut.type === 'insert') {
                     const { index } = mut;
                     const childValue = newArray[index];
-                    const context = new ListItem<T>(source, prevArray, childValue);
-                    prevArray.splice(index, 0, childValue);
 
-                    const scopeDriver = scope.driver(index);
-
+                    const context = new ListItem<T>(childValue);
+                    const itemScope = scope.createScope(index);
                     const bindings = renderStack(
                         flatTree(children, asProxy(context)).map(
-                            template => ({ driver: scopeDriver, template })
+                            template => ({ driver: itemScope, template })
                         ).reverse()
                     );
 
-                    // insert new state at index
-                    states.splice(index, 0, { 
-                        context, 
-                        bindings, 
-                        driver: scopeDriver
+                    const state = {
+                        context,
+                        bindings,
+                        driver: itemScope
+                    };
+
+                    context.subscribe(val => {
+                        const index = states.indexOf(state);
+                        if (index >= 0) {
+                            newArray[index] = val;
+                            refresh(source);
+                        }
+                        // if (newArray[index] !== val) {
+                        //     newArray[index] = val;
+                            // refresh(source);
+                        // }
                     });
+
+                    // insert new state at index
+                    states.splice(index, 0, state);
+
                 }
                 else if (mut.type === 'remove') {
                     const { index } = mut;
-                    const { bindings } = states.splice(index, 1)[0];
+                    const { bindings } = states[index];
                     if (bindings) {
                         for (var e = 0; e < bindings.length; e++) {
                             bindings[e].dispose();
                         }
                     }
-                    prevArray.splice(index, 1);
+                    states.splice(index, 1);
                 }
                 else if (mut.type === 'move') {
                     const { from, to } = mut;
-                    move(prevArray, from, to);
                     move(states, from, to);
                 } else if (mut.type === 'update') {
                     const { index } = mut;
