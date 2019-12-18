@@ -47,7 +47,6 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
     }
 
     type ItemState = {
-        bindings: Binding[],
         context: ListItem<T>,
         driver: IDriver
     }
@@ -71,7 +70,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
 
                     const context = new ListItem<T>(childValue);
                     const itemScope = scope.createScope(index);
-                    const bindings = renderStack(
+                    renderStack(
                         flatTree(children, asProxy(context)).map(
                             template => ({ driver: itemScope, template })
                         ).reverse()
@@ -79,7 +78,6 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
 
                     const state = {
                         context,
-                        bindings,
                         driver: itemScope
                     };
 
@@ -89,10 +87,6 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
                             newArray[index] = val;
                             refresh(source);
                         }
-                        // if (newArray[index] !== val) {
-                        //     newArray[index] = val;
-                            // refresh(source);
-                        // }
                     });
 
                     // insert new state at index
@@ -101,12 +95,13 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
                 }
                 else if (mut.type === 'remove') {
                     const { index } = mut;
-                    const { bindings } = states[index];
-                    if (bindings) {
-                        for (var e = 0; e < bindings.length; e++) {
-                            bindings[e].dispose();
-                        }
-                    }
+                    const { driver } = states[index];
+                    driver.dispose();
+                    // if (bindings) {
+                    //     for (var e = 0; e < bindings.length; e++) {
+                    //         bindings[e].dispose();
+                    //     }
+                    // }
                     states.splice(index, 1);
                 }
                 else if (mut.type === 'move') {
@@ -124,12 +119,13 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, children
         return {
             dispose() {
                 liftBinding.dispose();
-                for (let i = 0; i < states.length; i++) {
-                    const { bindings } = states[i];
-                    for (let e = 0; e < bindings.length; e++) {
-                        bindings[e].dispose();
-                    }
-                }
+                scope.dispose();
+                // for (let i = 0; i < states.length; i++) {
+                //     const { driver } = states[i];
+                //     for (let e = 0; e < bindings.length; e++) {
+                //         bindings[e].dispose();
+                //     }
+                // }
             }
         }
     }

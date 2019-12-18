@@ -173,7 +173,6 @@ export class TemplateObservable<T> implements ITemplate {
             dispose() {
                 subscr.unsubscribe();
                 scope.dispose();
-                binding && binding.dispose();
             }
         }
     }
@@ -215,8 +214,8 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
             },
             dispose() {
                 disposed = true;
-                bindingPromise.then(binding => binding && binding.dispose());
                 scope.dispose();
+                bindingPromise.then(binding => binding && binding.dispose());
             }
         }
     }

@@ -24,7 +24,7 @@ export class DomDriver implements IDriver {
         // const commentNode = document.createComment(`--- ${name} ---`);
         // this.target.appendChild(commentNode);
 
-        const scope = createScope(this);
+        const scope = createScope(this, this);
         if (typeof idx === 'number') {
             this[children].splice(idx, 0, scope);
         }
@@ -56,8 +56,13 @@ export class DomDriver implements IDriver {
     }
 
     appendChild(child) {
-        this[children].push(child);
-        this.target.appendChild(child);
+        const _children = this[children];
+        if (Array.isArray(_children)) {
+            _children.push(child);
+            this.target.appendChild(child);
+        } else {
+            console.warn('ignore child, driver is disposed.')
+        }
     }
 
     createElement(name: string, init) {
@@ -192,6 +197,8 @@ export class DomDriver implements IDriver {
         while (i--) {
             domElements[i].remove();
         }
+
+        delete this[children];
     }
 
     // static text(expressions: (Primitive | Re.IExpression<Primitive>)[]): Binding {
@@ -240,17 +247,24 @@ interface Parent {
 type Leaf = Comment | HTMLElement;
 type Component = Leaf | Parent;
 
-function createScope(root: DomDriver) {
+function createScope(root: DomDriver, parent: Parent) {
     const scope = {
         [children]: [] as Component[],
+        get disposed() {
+            return Array.isArray(scope[children]);
+        },
         appendChild(node) {
             const _children = scope[children];
-            _children.push(node);
-            const refNode = referenceNode(scope);
-            if (refNode)
-                root.target.insertBefore(node, refNode);
-            else
-                root.target.appendChild(node);
+            if (Array.isArray(_children)) {
+                _children.push(node);
+                const refNode = referenceNode(scope);
+                if (refNode)
+                    root.target.insertBefore(node, refNode);
+                else
+                    root.target.appendChild(node);
+            } else {
+                console.warn('appending child is skipped because scope is disposed already.')
+            }
         },
         createEvent(name, value) {
             throw new Error("create Event is not (yet) supported");
@@ -270,7 +284,7 @@ function createScope(root: DomDriver) {
                     return root.createDriver(tagNode);
                 },
                 dispose() {
-                    return removeComponent(tagNode);
+                    return removeComponent(scope, tagNode);
                 }
             }
         },
@@ -283,14 +297,14 @@ function createScope(root: DomDriver) {
                     (textNode.nodeValue = value as string);
                 },
                 dispose() {
-                    return removeComponent(textNode);
+                    return removeComponent(scope, textNode);
                 }
             }
         },
         createScope(idx?: number) {
             // const comment = document.createComment(`-- ${name} --`);
             // scope.appendChild(comment);
-            const subscope = createScope(root);
+            const subscope = createScope(root, scope);
             if (typeof idx === 'number') {
                 scope[children].splice(idx, 0, subscope);
             } else {
@@ -299,11 +313,16 @@ function createScope(root: DomDriver) {
             return subscope;
         },
         dispose() {
+            removeComponent(parent, scope);
+            delete scope[children]; // mark as disposed
         }
     };
 
-    function removeComponent(node: Component) {
+    function removeComponent(scope: Parent, node: Component) {
         const _children = scope[children];
+        if (!Array.isArray(_children))
+            return;
+
         const idx = _children.indexOf(node);
         if (idx >= 0) {
             _children.splice(idx, 1);
@@ -314,7 +333,7 @@ function createScope(root: DomDriver) {
             if (isParent(curr)) {
                 const _children = curr[children];
                 for (let i = 0; i < _children.length; i++) {
-                    const child = children[i];
+                    const child = _children[i];
                     stack.push(child);
                 }
             }

@@ -20,11 +20,11 @@ class IteratorTemplate<T> implements ITemplate {
         const { itemTemplates } = this;
         // const childrenLength = children.length;
 
-        const scopeDriver = driver.createScope();
+        const scope = driver.createScope();
 
         function bindArray(arr: T[]) {
             const bindings = [];
-            const itemBindings = arr.map((item, index) => renderMany(scopeDriver, itemTemplates.map(template => template(item, index))));
+            const itemBindings = arr.map((item, index) => renderMany(scope, itemTemplates.map(template => template(item, index))));
             for (var e = 0; e < itemBindings.length; e++) {
                 bindings.push(itemBindings[e]);
             }
@@ -55,7 +55,7 @@ class IteratorTemplate<T> implements ITemplate {
                         // TODO asProxy is assumed but needs to be typesafe
                         var index = mut.index;
                         var item: any = (source.property(index, true) as any).asProxy();
-                        var itemBindings = renderMany(scopeDriver, itemTemplates.map(template => template(item, index)));
+                        var itemBindings = renderMany(scope, itemTemplates.map(template => template(item, index)));
                         itemBindings.push(item);
                         bindings.splice(mut.index, 0, itemBindings);
                     } else if (mut.type === "remove") {
@@ -77,12 +77,13 @@ class IteratorTemplate<T> implements ITemplate {
             return {
                 dispose() {
                     observer.dispose();
-                    for (var i = 0; i < bindings.length; i++) {
-                        const itemBindings = bindings[i];
-                        for (var e = 0; e < itemBindings.length; e++) {
-                            itemBindings[e].dispose();
-                        }
-                    }
+                    scope.dispose();
+                    // for (var i = 0; i < bindings.length; i++) {
+                    //     const itemBindings = bindings[i];
+                    //     for (var e = 0; e < itemBindings.length; e++) {
+                    //         itemBindings[e].dispose();
+                    //     }
+                    // }
                 }
             }
         }
