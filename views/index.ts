@@ -2,6 +2,7 @@ import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive, children, d
 import { IExpression } from "./expression.js"
 import { isDomNode, DomDriver } from './dom.js';
 import { isUpdatable, isNextObserver } from '../lib/helpers.js';
+import Store from 'storejs/index.js';
 
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
@@ -345,7 +346,7 @@ class NativeTemplate implements ITemplate {
 }
 
 class Attribute implements ITemplate {
-    constructor(public name: string, public value: Primitive | IExpression<Primitive>) {
+    constructor(public name: string, public value: Primitive | IExpression<Primitive> | (() => Primitive | IExpression<Primitive>)) {
     }
 
     render(driver: IDriver) {
@@ -354,29 +355,75 @@ class Attribute implements ITemplate {
         if (value === null || value === void 0)
             return;
 
-        if (isPrimitive(value) || Array.isArray(value)) {
-            return driver.createAttribute(name, value);
-        }
-        else if (typeof value === "function") {
-            return driver.createEvent(name, value);
-        }
-        else if (isSubscribable(value)) {
-            let expr = value;
-            let attrElement = driver.createAttribute(name, expr.value);
-            const subscr = expr.subscribe(attrElement as any);
-            if (!subscr || typeof subscr.unsubscribe !== 'function')
-                return attrElement;
+        if (typeof value === "function") {
+            const eventBinding = driver.createEvent(name, value);
+            if (eventBinding)
+                return eventBinding;
 
+            console.error("not a valid event " + name);
+            value = value();
+        }
+
+        const attrValue = toAttributeValue(value);
+        if (attrValue.subscribe) {
+            const binding = driver.createAttribute(name, attrValue.value);
+            const subscr = attrValue.subscribe(v => {
+                binding.next(v);
+            })
             return {
                 dispose() {
                     subscr.unsubscribe();
-                    attrElement.dispose();
+                    binding.dispose();
                 }
             }
         }
-        else {
-            return driver.createAttribute(name, value.toString());
-        }
+        return driver.createAttribute(name, attrValue);
+
+
+        // else if (isSubscribable(value)) {
+        //     let expr = value;
+        //     let attrElement = driver.createAttribute(name, expr.value);
+        //     const subscr = expr.subscribe(attrElement as any);
+        //     if (!subscr || typeof subscr.unsubscribe !== 'function')
+        //         return attrElement;
+
+        //     return {
+        //         dispose() {
+        //             subscr.unsubscribe();
+        //             attrElement.dispose();
+        //         }
+        //     }
+        // }
+        // else {
+        //     return driver.createAttribute(name, value.toString());
+        // }
+    }
+}
+
+function toAttributeValue(value: any) {
+    if (Array.isArray(value)) {
+        const state = new Store([]);
+        const subscriptions = [];
+        for (let i = 0; i < value.length; i++) {
+            const item = value[i];
+            if (item === null || item === undefined)
+                continue;
+            if (isSubscribable(item)) {
+                const stateIndex = state.value.length;
+                subscriptions.push(
+                    item.subscribe(v => { state.update(arr => arr[stateIndex] = v) })
+                );
+            } else {
+                state.value.push(item);
+            }
+        };
+        if (subscriptions.length === 0)
+            return state.value;
+
+        return state;
+
+    } else {
+        return value;
     }
 }
 

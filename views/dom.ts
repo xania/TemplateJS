@@ -39,7 +39,7 @@ export class DomDriver implements IDriver {
         const { target } = this;
 
         if (!(("on" + name.toLocaleLowerCase()) in target)) {
-            console.error("not a valid event " + name);
+            return null;
         }
 
         if (typeof value === "function")
@@ -402,7 +402,11 @@ function createAttribute(target, name: string, value: Primitive) {
 
     function className(value: string) {
         prevValue.forEach(cl => target.classList.remove(cl));
-        prevValue = value.split(' ');
+        prevValue = Array.isArray(value)
+            ? value.filter(x => typeof x === 'string')
+            : value.split(' ')
+            ;
+
         prevValue.forEach(cl => target.classList.add(cl));
     }
 

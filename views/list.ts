@@ -31,7 +31,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
     function renderFixed(driver: IDriver, source: T[]) {
         const allBindings: Binding[] = [];
         for (let i = 0; i < source.length; i++) {
-            const context = new ListItem<T>(source[i]);
+            const context = new ListItem<T>(source[i], i);
             const bindings = renderStack(
                 flatTree(_children, asProxy(context), dispose).map(template => ({ driver, template })).reverse()
             );
@@ -62,7 +62,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
         const scope = driver.createScope();
         const states: ItemState[] = [];
 
-        const liftBinding = source.lift((newArray, prevArray: T[] = []) => {
+        const liftBinding = source.lift((newArray) => {
             for (let index = 0; index < newArray.length; index++) {
                 const childValue = newArray[index];
                 const state = states[index];
@@ -71,7 +71,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                     state.context.update(childValue);
                 } else {
                     // insert
-                    const context = new ListItem<T>(childValue);
+                    const context = new ListItem<T>(childValue, index);
                     const itemScope = scope.createScope(index);
                     const bindings = renderStack(
                         flatTree(_children, asProxy(context), dispose).map(
@@ -90,7 +90,6 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                     function dispose() {
                         const idx = states.indexOf(state);
                         if (idx >= 0) {
-                            prevArray.splice(idx, 1);
                             newArray.splice(idx, 1);
                             disposeItemState(idx);
                             refresh(source);
@@ -101,7 +100,6 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                         const index = states.indexOf(state);
                         if (index >= 0) {
                             newArray[index] = val;
-                            prevArray[index] = val;
                             refresh(source);
                         }
                     });
@@ -111,7 +109,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                 disposeItemState(index);
             }
 
-            return prevArray;
+            return null;
         });
 
         function disposeItemState(index: number) {
