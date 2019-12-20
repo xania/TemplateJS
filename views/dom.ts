@@ -1,7 +1,5 @@
-import { IDriver, Primitive, Executable, ScopeElement } from "./driver"
-import { last } from "rxjs/operators";
+import { IDriver, Primitive, Executable, TextElement, children, Parent, Component, referenceNode, disposeMany } from "./driver"
 
-const children = Symbol('children');
 const __emptyBinding = { dispose() { } };
 export class DomDriver implements IDriver {
     public target;
@@ -57,8 +55,18 @@ export class DomDriver implements IDriver {
 
     appendChild(child) {
         const _children = this[children];
+        const scope = this;
         if (Array.isArray(_children)) {
-            _children.push(child);
+            const component = {
+                insertBefore(node) {
+                    scope.target.insertBefore(node, child);
+                },
+                dispose() {
+                    child.dispose();
+                    removeComponent(scope, component);
+                }
+            };
+            _children.push(component);
             this.target.appendChild(child);
         } else {
             console.warn('ignore child, driver is disposed.')
@@ -66,7 +74,7 @@ export class DomDriver implements IDriver {
     }
 
     createElement(name: string, init) {
-        const tagNode = createElement(this.target, name);
+        const tagNode = createDOMElement(this.target, name);
         this.appendChild(tagNode);
         const driver = this.createDriver(tagNode);
 
@@ -240,43 +248,36 @@ export class DomDriver implements IDriver {
     // }
 }
 
-
-interface Parent {
-    [children]: Component[]
-}
-type Leaf = Comment | HTMLElement;
-type Component = Leaf | Parent;
-
 function createScope(root: DomDriver, parent: Parent) {
+    const attributes = [];
     const scope = {
         [children]: [] as Component[],
         get disposed() {
-            return Array.isArray(scope[children]);
-        },
-        appendChild(node) {
-            const _children = scope[children];
-            if (Array.isArray(_children)) {
-                _children.push(node);
-                const refNode = referenceNode(scope);
-                if (refNode)
-                    root.target.insertBefore(node, refNode);
-                else
-                    root.target.appendChild(node);
-            } else {
-                console.warn('appending child is skipped because scope is disposed already.')
-            }
+            return !Array.isArray(scope[children]);
         },
         createEvent(name, value) {
             throw new Error("create Event is not (yet) supported");
         },
         createAttribute(name, value) {
-            return createAttribute(root.target, name, value);
+            const binding = createAttribute(root.target, name, value);
+            attributes.push(binding);
+            return binding;
         },
         createElement(name, init) {
-            const tagNode = createElement(root.target, name);
-            this.appendChild(tagNode);
+            const tagNode = createDOMElement(root.target, name);
+            appendChild(tagNode);
 
-            return {
+            const component = {
+                tagNode,
+                insertBefore(node) {
+                    root.target.insertBefore(node, tagNode);
+                },
+                dispose() {
+                    tagNode.remove();
+                }
+            };
+            addComponent(component);
+            const binding = {
                 ready() {
                     init && init(tagNode);
                 },
@@ -284,28 +285,43 @@ function createScope(root: DomDriver, parent: Parent) {
                     return root.createDriver(tagNode);
                 },
                 dispose() {
-                    return removeComponent(scope, tagNode);
+                    tagNode.remove();
+                    removeComponent(scope, component);
                 }
             }
+            return binding;
         },
-        createNative(value: Primitive) {
+        createNative(value: Primitive): TextElement {
             const textNode = document.createTextNode(value as string);
-            this.appendChild(textNode);
+            appendChild(textNode);
+            const component = {
+                textNode,
+                insertBefore(node) {
+                    root.target.insertBefore(node, textNode);
+                },
+                dispose() {
+                    textNode.remove();
+                }
+            };
+            addComponent(component);
 
-            return {
+            const binding = {
                 next(value) {
                     (textNode.nodeValue = value as string);
                 },
                 dispose() {
-                    return removeComponent(scope, textNode);
+                    textNode.remove();
+                    removeComponent(scope, component);
                 }
-            }
+            };
+            return binding;
         },
         createScope(idx?: number) {
             // const comment = document.createComment(`-- ${name} --`);
             // scope.appendChild(comment);
             const subscope = createScope(root, scope);
             if (typeof idx === 'number') {
+                subscope['item-scope'] = true;
                 scope[children].splice(idx, 0, subscope);
             } else {
                 scope[children].push(subscope);
@@ -314,54 +330,44 @@ function createScope(root: DomDriver, parent: Parent) {
         },
         dispose() {
             removeComponent(parent, scope);
+            // deliberately use the children array instance instead of cloning it.
+            // disposeChildren(scope[children]);
             delete scope[children]; // mark as disposed
         }
     };
 
-    function removeComponent(scope: Parent, node: Component) {
-        const _children = scope[children];
-        if (!Array.isArray(_children))
-            return;
-
-        const idx = _children.indexOf(node);
-        if (idx >= 0) {
-            _children.splice(idx, 1);
+    function appendChild(node: Comment | HTMLElement) {
+        const refNode = referenceNode(root, scope);
+        if (refNode) {
+            refNode.insertBefore(node);
         }
-        const stack = [node];
-        while (stack.length > 0) {
-            const curr = stack.pop();
-            if (isParent(curr)) {
-                const _children = curr[children];
-                for (let i = 0; i < _children.length; i++) {
-                    const child = _children[i];
-                    stack.push(child);
-                }
-            }
-            else {
-                curr.remove();
-            }
-        }
-    }
-
-    function referenceNode(component: Component) {
-        const stack = [root as Component];
-        let found = false;
-        while (stack.length) {
-            const curr = stack.pop();
-            if (curr === component) {
-                found = true;
-            } else if (isParent(curr)) {
-                const _children = curr[children];
-                for (let i = _children.length - 1; i >= 0; i--) {
-                    stack.push(_children[i]);
-                }
-            } else if (found === true) {
-                return curr;
-            }
-        }
+        else
+            root.target.appendChild(node);
     };
 
+    function addComponent(component: Component) {
+        const _children = scope[children];
+        if (Array.isArray(_children)) {
+            _children.push(component);
+            return true;
+        } else {
+            console.warn('appending child is skipped because scope is disposed already.')
+            return false;
+        }
+    }
     return scope;
+}
+
+
+function removeComponent(scope: Parent, node: Component) {
+    const _children = scope[children];
+    if (!Array.isArray(_children))
+        return;
+
+    const idx = _children.indexOf(node);
+    if (idx >= 0) {
+        _children.splice(idx, 1);
+    }
 }
 
 function createAttribute(target, name: string, value: Primitive) {
@@ -425,15 +431,7 @@ function createAttribute(target, name: string, value: Primitive) {
 }
 
 
-class SvgDriver extends DomDriver {
-}
-
-function createChild(parent: DomDriver, name: string) {
-    const tagNode = createElement(parent.target, name);
-    return parent.createDriver(tagNode);
-}
-
-function createElement(target, name) {
+function createDOMElement(target, name) {
     const namespaceURI = name === "svg" ? "http://www.w3.org/2000/svg" : target && target.namespaceURI;
     const tagNode = document.createElementNS(namespaceURI, name);
 
@@ -463,44 +461,4 @@ export function isDomNode(obj): obj is HTMLElement {
             (obj.nodeType === 1) && (typeof obj.style === "object") &&
             (typeof obj.ownerDocument === "object");
     }
-}
-
-function insertNodeAt(parent: { target: HTMLElement }, elements, anchorNode, newElement, index: number) {
-    if (index > elements.length)
-        throw new Error("wat doe je?");
-    if (elements[index]) {
-        parent.target.insertBefore(newElement, elements[index]);
-        elements.splice(index, 0, newElement);
-    } else if (anchorNode) {
-        parent.target.insertBefore(newElement, anchorNode);
-        elements[index] = newElement;
-    } else {
-        parent.target.appendChild(newElement);
-        elements[index] = newElement;
-    }
-}
-
-function isParent(node: any): node is Parent {
-    if (node == null)
-        return false;
-    if (typeof node === 'object')
-        return children in node;
-    return false;
-}
-
-window['componentTree'] = function (root: Component) {
-    const retval = [];
-    const stack = [{ component: root, result: retval }];
-    while (stack.length) {
-        const { component, result } = stack.pop();
-        if (isParent(component)) {
-            const childResult = [];
-            result.push(children);
-            component[children].forEach(child => stack.push({ component: child, result: childResult }))
-        } else {
-            result.push(component);
-        }
-    }
-
-    return retval;
 }

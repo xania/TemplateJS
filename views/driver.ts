@@ -6,6 +6,8 @@ export declare type Subscribable<T> = { subscribe: (observer: Observer<T>) => Su
 export type Executable<T> = { execute: (e: T) => any } | Function
 export type BindingValue<T> = T | Subscribable<T>;
 
+export const children = Symbol('children');
+
 export interface IDriver {
     createElement(name: string, init?: Action<any>): TagElement;
     createNative(value: any): TextElement;
@@ -25,7 +27,8 @@ export interface TagElement {
 }
 
 export interface TextElement {
-    dispose();
+    dispose(): void;
+    next(value: string);
 }
 
 export interface ScopeElement {
@@ -52,9 +55,8 @@ export interface ITemplate {
 }
 
 export interface Binding {
-    children?: ITemplate[];
     driver?(): IDriver;
-    dispose();
+    dispose?();
 }
 
 export function init(view: ITemplate, callback) {
@@ -70,4 +72,63 @@ export function isSubscribable<T>(value): value is Subscribable<T> {
     return value && typeof value.subscribe === "function";
 }
 
+export interface Parent {
+    [children]: Component[]
+}
+interface Leaf {
+    insertBefore(node: Comment | HTMLElement);
+    dispose(): void;
+}
+export type Component = Leaf | Parent;
 
+
+function isParent(node: any): node is Parent {
+    if (node == null)
+        return false;
+    if (typeof node === 'object')
+        return children in node;
+    return false;
+}
+
+export function referenceNode(root: Parent, component: Component) {
+    const stack: Component[] = [root];
+    let found = false;
+    while (stack.length) {
+        const curr = stack.pop();
+        if (curr === component) {
+            found = true;
+        } else if (isParent(curr)) {
+            const _children = curr[children];
+            for (let i = _children.length - 1; i >= 0; i--) {
+                stack.push(_children[i]);
+            }
+        } else if (found === true) {
+            return curr;
+        }
+    }
+};
+
+interface Disposable {
+    dispose?(): void;
+}
+
+export function disposeMany(disposables: Disposable | Disposable[]) {
+    const stack: Disposable[] = 
+        Array.isArray(disposables) 
+        ? disposables.slice(0)
+        : [ disposables ];
+    while (stack.length) {
+        const curr = stack.pop();
+        if (!curr)
+            continue;
+        if (typeof curr.dispose === 'function')
+            curr.dispose();
+
+        const _children = curr[children];
+        if (Array.isArray(_children)) {
+            for (let i = _children.length - 1; i >= 0; i--) {
+                stack.push(_children[i]);
+            }
+        }
+    }
+}

@@ -1,6 +1,7 @@
-import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive } from './driver.js';
+import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive, children, disposeMany } from './driver.js';
 import { IExpression } from "./expression.js"
 import { isDomNode, DomDriver } from './dom.js';
+import { isUpdatable, isNextObserver } from '../lib/helpers.js';
 
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
@@ -154,18 +155,19 @@ export class TemplateObservable<T> implements ITemplate {
 
     render(driver: IDriver): Binding {
         const { observable } = this;
-        let binding = null;
-        var scope = driver.createScope();
+        let bindings: Binding[] = null;
+        const scope = driver.createScope();
         const subscr = observable.subscribe(
             value => {
-                if (binding) {
-                    if (binding.next) {
+                if (bindings && bindings.length === 1 && isPrimitive(value)) {
+                    const binding = bindings[0]
+                    if (isNextObserver(binding)) {
                         binding.next(value);
                         return;
                     }
-                    binding.dispose();
                 }
-                binding = render(scope, asTemplate(value));
+                disposeMany(bindings);
+                bindings = render(scope, asTemplate(value));
             }
         );
 
@@ -173,6 +175,7 @@ export class TemplateObservable<T> implements ITemplate {
             dispose() {
                 subscr.unsubscribe();
                 scope.dispose();
+                disposeMany(bindings);
             }
         }
     }
@@ -199,7 +202,7 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
 
             loadingBinding = render(scope, tpl("div", { "class": "loading-placeholder" }))
             promise.then(_ => {
-                loadingBinding.dispose();
+                disposeMany(loadingBinding);
             })
         }, 200);
 
@@ -215,7 +218,7 @@ class TemplatePromise<T extends TemplateInput> implements ITemplate {
             dispose() {
                 disposed = true;
                 scope.dispose();
-                bindingPromise.then(binding => binding && binding.dispose());
+                bindingPromise.then(disposeMany);
             }
         }
     }
@@ -249,9 +252,8 @@ export function asTemplate(name: any): ITemplate | ITemplate[] {
         return name;
     else if (typeof name === "function")
         return functionAsTemplate(name);
-    else if (Array.isArray(name)) {
+    else if (Array.isArray(name))
         return flatTree(name, asTemplate);
-    }
     else if (isPromise(name))
         return new TemplatePromise(name);
     else if (isSubscribable(name))
@@ -293,12 +295,12 @@ function functionAsTemplate(func: Function): ITemplate {
             var template = asTemplate(tpl);
             if (Array.isArray(template)) {
                 const bindings = [];
-                for(let i=0 ; i<template.length ; i++) {
+                for (let i = 0; i < template.length; i++) {
                     bindings.push(template[i].render(driver));
                 }
                 return {
                     dispose() {
-                        for(let i=0 ; i<bindings.length ; i++) {
+                        for (let i = 0; i < bindings.length; i++) {
                             bindings[i].dispose();
                         }
                     }
@@ -316,19 +318,7 @@ class TagTemplate implements ITemplate {
 
     render(driver: IDriver, init?: Func<any>) {
         let { name } = this;
-        let elt = driver.createElement(name, init);
-        return {
-            children: this.children,
-            ready() {
-                return elt.ready();
-            },
-            driver() {
-                return elt.driver()
-            },
-            dispose() {
-                elt.dispose()
-            }
-        };
+        return driver.createElement(name, init);
     }
 }
 
@@ -391,31 +381,28 @@ class Attribute implements ITemplate {
 }
 
 
-export function render(target: IDriver | HTMLElement, template: ITemplate | ITemplate[]) {
+export function render(target: IDriver | HTMLElement, template: ITemplate | ITemplate[]): Binding[] {
     const driver = isDomNode(target) ? new DomDriver(target) : target
-    var bindings = renderStack([{ driver, template }]);
+    return renderStack([{ driver, template }]);
 
-    return {
-        next(value) {
-            for (var i = 0; i < bindings.length; i++) {
-                var binding = bindings[i];
-                if (binding && typeof binding.next == 'function')
-                    binding.next(value);
-            }
-        },
-        dispose() {
-            for (var i = 0; i < bindings.length; i++) {
-                var binding = bindings[i];
-                if (binding && typeof binding.dispose == 'function')
-                    binding.dispose();
-            }
-        }
-    }
+    // return {
+    //     [ children ]: bindings,
+    //     // next(value) {
+    //     //     for (var i = 0; i < bindings.length; i++) {
+    //     //         var binding = bindings[i];
+    //     //         if (binding && typeof binding.next == 'function')
+    //     //             binding.next(value);
+    //     //     }
+    //     // },
+    //     // dispose() {
+    //     //     // disposeMany(bindings);
+    //     // }
+    // }
 }
 
 type StackItem = { driver: IDriver, template: ITemplate | ITemplate[] };
 export function renderStack(stack: StackItem[]) {
-    const bindings = [];
+    const bindings: Binding[] = [];
 
     while (stack.length) {
         const { driver, template } = stack.pop();
@@ -424,7 +411,7 @@ export function renderStack(stack: StackItem[]) {
 
         if (Array.isArray(template)) {
             for (let i = template.length - 1; i >= 0; i--) {
-                stack.push({driver, template: template[i]})
+                stack.push({ driver, template: template[i] })
             }
             continue;
         }
@@ -448,11 +435,19 @@ export function renderStack(stack: StackItem[]) {
 
     for (var i = 0; i < bindings.length; i++) {
         const binding = bindings[i];
-        if (binding['ready'])
+        if (isInitializable(binding))
             binding.ready();
     }
 
     return bindings;
+}
+
+interface Initializable {
+    ready(): void;
+}
+
+function isInitializable(obj): obj is Initializable {
+    return obj && typeof obj['ready'] === 'function';
 }
 
 export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
