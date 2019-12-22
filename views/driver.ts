@@ -11,7 +11,7 @@ export const children = Symbol('children');
 export interface IDriver {
     createElement(name: string, init?: Action<any>): TagElement;
     createNative(value: any): TextElement;
-    createAttribute(name: string, value: any): TextElement;
+    createAttribute(name: string, value: any | any[]): TextElement;
     createEvent(name: string, value: Executable<any> | Function): TagEvent;
     createScope(idx?: number): IDriver;
     dispose(): void;
@@ -28,7 +28,7 @@ export interface TagElement {
 
 export interface TextElement {
     dispose(): void;
-    next(value: string);
+    next(value: Primitive | Primitive[]);
 }
 
 export interface ScopeElement {

@@ -370,10 +370,10 @@ function removeComponent(scope: Parent, node: Component) {
     }
 }
 
-function createAttribute(target, name: string, value: Primitive) {
+function createAttribute(target, name: string, value: Primitive | Primitive[]) {
     var prevValue = [];
     if (name === "class") {
-        prevValue = Array.isArray(value) ? value : toString(value).split(' ');
+        prevValue = Array.isArray(value) ? value : (toString(value) || '').split(' ');
         prevValue.filter(e => e).forEach(cl => target.classList.add(cl));
         return {
             target,
@@ -401,7 +401,7 @@ function createAttribute(target, name: string, value: Primitive) {
     }
 
     function className(value: string) {
-        prevValue.forEach(cl => target.classList.remove(cl));
+        prevValue.forEach(cl => cl && target.classList.remove(cl));
         prevValue = Array.isArray(value)
             ? value.filter(x => typeof x === 'string')
             : value.split(' ')

@@ -1,8 +1,7 @@
 import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive, children, disposeMany } from './driver.js';
-import { IExpression } from "./expression.js"
 import { isDomNode, DomDriver } from './dom.js';
-import { isUpdatable, isNextObserver } from '../lib/helpers.js';
-import Store from 'storejs/index.js';
+import { isNextObserver } from '../lib/helpers.js';
+import { combine, IExpression, UnpackSubscribables } from 'storejs/index.js';
 
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
@@ -26,10 +25,6 @@ export function tpl(name: TemplateInput, props: Props = null, ...children: any[]
     }
 
     return asTemplate(name);
-
-    function isNotNull(value) {
-        return value !== null && value !== undefined;
-    }
 }
 
 export function lazy<T>(fn: () => T) {
@@ -345,8 +340,11 @@ class NativeTemplate implements ITemplate {
     }
 }
 
+type AttributeValue = Primitive | IExpression<Primitive>;
+
 class Attribute implements ITemplate {
-    constructor(public name: string, public value: Primitive | IExpression<Primitive> | (() => Primitive | IExpression<Primitive>)) {
+
+    constructor(public name: string, public value: (AttributeValue | AttributeValue[]) | (() => AttributeValue | AttributeValue[])) {
     }
 
     render(driver: IDriver) {
@@ -354,6 +352,8 @@ class Attribute implements ITemplate {
 
         if (value === null || value === void 0)
             return;
+
+
 
         if (typeof value === "function") {
             const eventBinding = driver.createEvent(name, value);
@@ -364,12 +364,20 @@ class Attribute implements ITemplate {
             value = value();
         }
 
-        const attrValue = toAttributeValue(value);
-        if (attrValue.subscribe) {
-            const binding = driver.createAttribute(name, attrValue.value);
-            const subscr = attrValue.subscribe(v => {
-                binding.next(v);
-            })
+        if (Array.isArray(value)) {
+            const binding = driver.createAttribute(name, undefined);
+            const observable = combine(value);
+            const subscr = observable.subscribe(binding);
+
+            return {
+                dispose() {
+                    subscr.unsubscribe();
+                    binding.dispose();
+                }
+            }
+        } else if (isSubscribable(value)) {
+            const binding = driver.createAttribute(name, value.value);
+            const subscr = value.subscribe(binding);
             return {
                 dispose() {
                     subscr.unsubscribe();
@@ -377,8 +385,8 @@ class Attribute implements ITemplate {
                 }
             }
         }
-        return driver.createAttribute(name, attrValue);
-
+        else
+            return driver.createAttribute(name, value);
 
         // else if (isSubscribable(value)) {
         //     let expr = value;
@@ -400,32 +408,32 @@ class Attribute implements ITemplate {
     }
 }
 
-function toAttributeValue(value: any) {
-    if (Array.isArray(value)) {
-        const state = new Store([]);
-        const subscriptions = [];
-        for (let i = 0; i < value.length; i++) {
-            const item = value[i];
-            if (item === null || item === undefined)
-                continue;
-            if (isSubscribable(item)) {
-                const stateIndex = state.value.length;
-                subscriptions.push(
-                    item.subscribe(v => { state.update(arr => arr[stateIndex] = v) })
-                );
-            } else {
-                state.value.push(item);
-            }
-        };
-        if (subscriptions.length === 0)
-            return state.value;
+// function toAttributeValue(value: any) {
+//     if (Array.isArray(value)) {
+//         const state = new Store([]);
+//         const subscriptions = [];
+//         for (let i = 0; i < value.length; i++) {
+//             const item = value[i];
+//             if (item === null || item === undefined)
+//                 continue;
+//             if (isSubscribable(item)) {
+//                 const stateIndex = state.value.length;
+//                 subscriptions.push(
+//                     item.subscribe(v => { state.update(arr => arr[stateIndex] = v) })
+//                 );
+//             } else {
+//                 state.value.push(item);
+//             }
+//         };
+//         if (subscriptions.length === 0)
+//             return state.value;
 
-        return state;
+//         return state;
 
-    } else {
-        return value;
-    }
-}
+//     } else {
+//         return value;
+//     }
+// }
 
 
 export function render(target: IDriver | HTMLElement, template: ITemplate | ITemplate[]): Binding[] {

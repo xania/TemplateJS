@@ -1,13 +1,26 @@
+import { IExpression } from "storejs";
+
 type NextObserver<T> = { next(value?: T): void }
 
-export interface IExpression<T> {
-    value?: T,
-    property<K extends keyof T>(propertyName: K): IExpression<T[K]>;
-    property<K extends keyof T>(propertyName: K, immutable: true): IExpression<T[K]>;
-    subscribe(observer: NextObserver<T>): Unsubscribable;
-    lift<U>(project: (value: T, prev?: U) => U): IExpression<U>
-    dispose();
+type Action<T> = (value: T) => void;
+type Func<T, U> = (a: T) => U;
+
+export interface Updatable<T> {
+    // name: string | number;
+    update(value: T | Func<T, T | void>): boolean;
+    tap(action: Action<T>): boolean;
 }
+
+export interface IProperty<T> extends IExpression<T>, Updatable<T> {
+    // name: string | number;
+}
+
+export interface PartialObserver<T> {
+    next?: (value: T) => void;
+    error?: (err: any) => void;
+    complete?: () => void;
+}
+
 
 type ArrayMutation<T> = (
     { type: "insert", item: IExpression<T>, index: number } |
