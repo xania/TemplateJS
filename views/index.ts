@@ -1,7 +1,7 @@
 import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive, children, disposeMany } from './driver.js';
 import { isDomNode, DomDriver } from './dom.js';
 import { isNextObserver } from '../lib/helpers.js';
-import { combine, IExpression, UnpackSubscribables } from 'storejs/index.js';
+import { join, IExpression } from 'storejs/index.js';
 
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
@@ -366,7 +366,7 @@ class Attribute implements ITemplate {
 
         if (Array.isArray(value)) {
             const binding = driver.createAttribute(name, undefined);
-            const observable = combine(value);
+            const observable = join(value);
             const subscr = observable.subscribe(binding);
 
             return {
