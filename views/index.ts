@@ -1,7 +1,7 @@
 import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive, children, disposeMany } from './driver.js';
 import { isDomNode, DomDriver } from './dom.js';
 import { isNextObserver } from '../lib/helpers.js';
-import { join, IExpression } from 'storejs/index.js';
+import { combineLatest, Expression } from 'storejs/index.js';
 
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
@@ -10,7 +10,7 @@ declare type PureComponent = (...args: any) => any
 declare type Func<T> = (arg: T) => any;
 declare type Attachable = { attach: (dom: HTMLElement) => { dispose(): any } }
 
-type TemplateElement = Primitive | IExpression<Primitive> | string | PureComponent | ITemplate | { view: TemplateElement } | HTMLElement;
+type TemplateElement = Primitive | Expression<Primitive> | string | PureComponent | ITemplate | { view: TemplateElement } | HTMLElement;
 type TemplateInput = TemplateElement | TemplateElement[];
 
 export function tpl(name: TemplateInput, props: Props = null, ...children: any[]): ITemplate | ITemplate[] {
@@ -319,7 +319,7 @@ class TagTemplate implements ITemplate {
 }
 
 class NativeTemplate implements ITemplate {
-    constructor(public value: Primitive | IExpression<Primitive> | HTMLElement) {
+    constructor(public value: Primitive | Expression<Primitive> | HTMLElement) {
     }
 
     render(driver: IDriver): Binding {
@@ -340,7 +340,7 @@ class NativeTemplate implements ITemplate {
     }
 }
 
-type AttributeValue = Primitive | IExpression<Primitive>;
+type AttributeValue = Primitive | Expression<Primitive>;
 
 class Attribute implements ITemplate {
 
@@ -353,8 +353,6 @@ class Attribute implements ITemplate {
         if (value === null || value === void 0)
             return;
 
-
-
         if (typeof value === "function") {
             const eventBinding = driver.createEvent(name, value);
             if (eventBinding)
@@ -366,8 +364,7 @@ class Attribute implements ITemplate {
 
         if (Array.isArray(value)) {
             const binding = driver.createAttribute(name, undefined);
-            const observable = join(value);
-            const subscr = observable.subscribe(binding);
+            const subscr = combineLatest(value).subscribe(binding);
 
             return {
                 dispose() {
@@ -376,8 +373,9 @@ class Attribute implements ITemplate {
                 }
             }
         } else if (isSubscribable(value)) {
-            const binding = driver.createAttribute(name, value.value);
-            const subscr = value.subscribe(binding);
+            const expr = value;
+            const binding = driver.createAttribute(name, undefined);
+            const subscr = expr.subscribe(binding);
             return {
                 dispose() {
                     subscr.unsubscribe();

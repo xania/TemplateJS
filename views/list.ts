@@ -1,14 +1,14 @@
 import { ITemplate, Binding, IDriver, disposeMany, children } from "./driver";
-import { ProxyOf, IExpression, asProxy, ListItem, refresh } from "storejs"
+import { ProxyOf, asProxy, ListItem, refresh } from "storejs"
 import { renderStack, asTemplate } from "templatejs/views";
-import { Unsubscribable } from "./expression";
+// import { Unsubscribable } from "./expression";
 
 type Disposable = { dispose(): any };
 type ListSource<T> =
     {
         value?: T[],
         lift<U>(comparer: (newValue: T[], oldValue: U) => U): Disposable,
-        properties?: IExpression<T>[];
+        // properties?: IExpression<T>[];
     };
 
 type ItemTemplate<T> = (context: ProxyOf<T>) => ITemplate[];
@@ -49,6 +49,10 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                 }
             }
         }
+    }
+
+    type Unsubscribable = {
+        unsubscribe(): void
     }
 
     type ItemState = {

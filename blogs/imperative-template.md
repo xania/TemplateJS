@@ -1,6 +1,6 @@
-﻿## Imperative Template Framework
+﻿## Imperative Templating Framework
 
-Why is React JS the most popular framework today? This article is a good template framework 
+Why is React JS the most popular framework today? This article is about a good template framework 
 
 Back in 2013/2014 When JavaScript was finally fully accepted as an essential part of the web, basically at this time you could get yourself arrested if you turn off javascript on your browser. For a client in the Netherlands I thought I could easily switch to writing fully web based applications, but I ended up with 2 years of frustration because of the challenges that arise when working with tools like jQuery, KnockoutJS and even KendoJS. 
 
