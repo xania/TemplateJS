@@ -1,5 +1,5 @@
 import { ITemplate, Binding, IDriver, disposeMany, children } from "./driver";
-import { ProxyOf, asProxy, ListItem, refresh } from "storejs"
+import { State, asProxy, ListItem, refresh } from "storejs"
 import { renderStack, asTemplate } from "templatejs/views";
 // import { Unsubscribable } from "./expression";
 
@@ -11,7 +11,7 @@ type ListSource<T> =
         // properties?: IExpression<T>[];
     };
 
-type ItemTemplate<T> = (context: ProxyOf<T>) => ITemplate[];
+type ItemTemplate<T> = (context: State<T>) => ITemplate[];
 export default function List<T>(props: { source: ListSource<T> | T[] }, _children: ItemTemplate<T>[]) {
     return {
         render(driver: IDriver) {
