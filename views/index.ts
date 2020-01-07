@@ -1,7 +1,7 @@
-import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive, children, disposeMany } from './driver.js';
-import { isDomNode, DomDriver } from './dom.js';
-import { isNextObserver } from '../lib/helpers.js';
-import { combineLatest, Expression } from 'storejs/index.js';
+import { Binding, Props, ITemplate, IDriver, Primitive, isPrimitive, children, disposeMany } from './driver';
+import { isDomNode, DomDriver } from './dom';
+import { isNextObserver } from '../lib/helpers';
+import { combineLatest, Expression } from 'storejs/index';
 
 declare type Subscription = { unsubscribe() };
 declare type Observer = (value) => any;
