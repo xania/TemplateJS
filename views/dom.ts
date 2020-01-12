@@ -1,4 +1,5 @@
-import { IDriver, Primitive, Executable, TextElement, children, Parent, Component, referenceNode, disposeMany } from "./driver"
+import { IDriver, Primitive, Executable, TextElement, children, Parent, Component, referenceNode, disposeMany, isSubscribable } from "./driver"
+import { combineLatest } from "storejs";
 
 const __emptyBinding = { dispose() { } };
 export class DomDriver implements IDriver {
@@ -371,15 +372,26 @@ function removeComponent(scope: Parent, node: Component) {
 }
 
 function createAttribute(target, name: string, value: Primitive | Primitive[]) {
-    var prevValue = [];
-    if (name === "class") {
-        prevValue = Array.isArray(value) ? value : (toString(value) || '').split(' ');
-        prevValue.filter(e => e).forEach(cl => target.classList.add(cl));
+    var prevValues = [];
+    if (name === "disabled") {
+        isDisabled(value);
+        return {
+            target,
+            next: isDisabled,
+            dispose() {
+            }
+        };
+        function isDisabled(value) {
+            target.disabled = !!value;
+        }
+    } else if (name === "class") {
+        const subscr = combineLatest(Array.isArray(value) ? value : [value]).subscribe(className);
         return {
             target,
             next: className,
             dispose() {
-                prevValue.forEach(cl => cl && target.classList.remove(cl));
+                subscr.unsubscribe();
+                prevValues.forEach(cl => cl && target.classList.remove(cl));
             }
         }
     } else if (name === "value") {
@@ -400,14 +412,37 @@ function createAttribute(target, name: string, value: Primitive | Primitive[]) {
         }
     }
 
-    function className(value: string) {
-        prevValue.forEach(cl => cl && target.classList.remove(cl));
-        prevValue = Array.isArray(value)
-            ? value.filter(x => typeof x === 'string')
-            : value.split(' ')
-            ;
+    function className(value: any) {
+        const nextValues = [];
 
-        prevValue.forEach(cl => target.classList.add(cl));
+        const stack = [value];
+        while (stack.length) {
+            const curr = stack.pop();
+            if (curr === null || curr === undefined)
+                continue;
+
+            if (Array.isArray(curr)) {
+                for (var i = 0; i < curr.length; i++) {
+                    stack.push(curr[i]);
+                }
+            } else if (typeof curr === "string") {
+                const split = curr.split(' ');
+                for (var i = 0; i < split.length; i++) {
+                    const cl = split[i];
+                    if (cl) nextValues.push(cl);
+                }
+            } else {
+                const split = curr.toString().split(' ');
+                for (var i = 0; i < split.length; i++) {
+                    const cl = split[i];
+                    if (cl) nextValues.push(cl);
+                }
+            }
+        }
+
+        prevValues.forEach(cl => target.classList.remove(cl));
+        nextValues.forEach(cl => target.classList.add(cl));
+        prevValues = nextValues;
     }
 
     function valueAttribute(value: string) {
