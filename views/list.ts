@@ -67,7 +67,8 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
         const states: ItemState[] = [];
 
         const liftBinding = source.lift((newArray) => {
-            for (let index = 0; index < newArray.length; index++) {
+            const newArrayLength = newArray && newArray.length ? newArray.length : 0;
+            for (let index = 0; index < newArrayLength; index++) {
                 const childValue = newArray[index];
                 const state = states[index];
                 if (state) {
@@ -109,7 +110,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                     });
                 }
             }
-            for (let index = states.length - 1; index >= newArray.length; index--) {
+            for (let index = states.length - 1; index >= newArrayLength; index--) {
                 disposeItemState(index);
             }
 
