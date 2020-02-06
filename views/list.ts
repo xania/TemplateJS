@@ -1,5 +1,5 @@
 import { ITemplate, Binding, IDriver, disposeMany, children } from "./driver";
-import { State, asProxy, ListItem, refresh } from "storejs"
+import { State, asProxy, ListItem, refresh, digest, flush } from "storejs"
 import { renderStack, asTemplate } from "templatejs/views";
 // import { Unsubscribable } from "./expression";
 
@@ -97,7 +97,14 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                         if (idx >= 0) {
                             newArray.splice(idx, 1);
                             disposeItemState(idx);
-                            refresh(source);
+                            const dirty = digest(source);
+                            let parent: any = source;
+                            while (parent) {
+                                dirty.push(parent);
+                                parent = parent.parent;
+                            }
+                            flush(dirty);
+                
                         }
                     }
 
@@ -159,7 +166,7 @@ function flatTree<T>(source: T[], context: any, dispose): ITemplate[] {
                 stack.push(curr[i]);
             }
         } else if (typeof curr === 'function') {
-            const retval = curr.call(curr, context, dispose);
+            const retval = curr.call(null, context, dispose);
             stack.push(retval);
         } else {
             result.push(asTemplate(curr) as ITemplate);
