@@ -9,6 +9,7 @@ type ListSource<T> =
         value?: T[],
         lift<U>(comparer: (newValue: T[], oldValue: U) => U): Disposable,
         // properties?: IExpression<T>[];
+        parent?: any
     };
 
 type ItemTemplate<T> = (context: State<T>) => ITemplate[];
@@ -113,6 +114,13 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                         if (index >= 0) {
                             newArray[index] = val;
                             refresh(source);
+                            const dirty = [];
+                            let parent = source.parent;
+                            while(parent) {
+                                dirty.push(parent);
+                                parent = parent.parent;
+                            }
+                            flush(dirty);
                         }
                     });
                 }
