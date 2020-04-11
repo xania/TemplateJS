@@ -122,7 +122,7 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                             }
                             flush(dirty);
                         }
-                    });
+                    }, true);
                 }
             }
             for (let index = states.length - 1; index >= newArrayLength; index--) {
