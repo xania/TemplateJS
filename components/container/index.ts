@@ -67,14 +67,14 @@ export default function Container<T>(props: ContainerProps<T>, _children: ItemTe
 
                 function applyInsert(values: T, index: number) {
                     const itemScope = rootScope.createScope(index);
+                    const store = new Store(values);
                     const bindings = renderStack(
-                        flatTree(_children, [ values, dispose ]).map(template => ({ driver: itemScope, template })).reverse()
+                        flatTree(_children, [ store, dispose ]).map(template => ({ driver: itemScope, template })).reverse()
                     );
+                    bindings.push(store.subscribe(mutations.notify, true));
                     const item: ContainerItem = {
                         scope: itemScope,
-                        bindings: [
-                            ...bindings
-                        ]
+                        bindings
                     }
                     items.splice(index, 0, item);
                     function dispose() {
@@ -95,6 +95,7 @@ export default function Container<T>(props: ContainerProps<T>, _children: ItemTe
 
 export interface MutationSource<T> extends Subscribable<Mutation<T>> {
     add(mutation: Mutation<T>);
+    notify();
 }
 
 interface ContainerItem {
