@@ -1,5 +1,5 @@
 import { Liftable, Updatable } from "storejs";
-import { IDriver } from "views/driver";
+import { IDriver } from "../views/driver";
 
 interface ToggleProps {
     value: Updatable<boolean> & Liftable<boolean>;

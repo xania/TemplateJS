@@ -1,4 +1,4 @@
-import { IDriver } from "views/driver";
+import { IDriver } from "../views/driver";
 
 interface EventProps {
     callback: () => any

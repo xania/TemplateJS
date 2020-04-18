@@ -109,18 +109,20 @@ export default function List<T>(props: { source: ListSource<T> | T[] }, _childre
                         }
                     }
 
-                    state.subscr = context.subscribe(val => {
+                    state.subscr = context.onChange(val => {
                         const index = states.indexOf(state);
                         if (index >= 0) {
-                            newArray[index] = val;
-                            refresh(source);
-                            const dirty = [];
-                            let parent = source.parent;
-                            while(parent) {
-                                dirty.push(parent);
-                                parent = parent.parent;
+                            if (newArray[index] !== val) {
+                                newArray[index] = val;
+                                refresh(source);
+                                const dirty = [];
+                                let parent = source.parent;
+                                while(parent) {
+                                    dirty.push(parent);
+                                    parent = parent.parent;
+                                }
+                                flush(dirty);
                             }
-                            flush(dirty);
                         }
                     }, true);
                 }

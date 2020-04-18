@@ -27,7 +27,7 @@ export default function List<T>(props: ListProps<T>, _children: ListItemTemplate
     function itemTemplate(values: T, index: () => number) {
         const store = new Store(values);
         return [
-            store.subscribe(notify, true),
+            store.onChange(notify, true),
             flatTree(_children, [ asProxy(store), { index, dispose } ])
         ]
 
