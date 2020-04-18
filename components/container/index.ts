@@ -1,10 +1,10 @@
 import { ITemplate, IDriver, Binding, disposeMany } from "../../views/driver";
-import { State, Subscribable, Store, ListItem } from "storejs";
+import { Subscribable } from "storejs";
 import { renderStack } from "../../views";
 import { flatTree } from "./helpers";
 
 type Disposable = { dispose(): any };
-export type Mutation<T = unknown> = PushItem<T> | InsertItem<T> | RemoveItem;
+export type Mutation<T = unknown> = PushItem<T> | InsertItem<T> | RemoveItem | ResetItems<T>;
 interface PushItem<T> {
     type: "push",
     values: T
@@ -18,19 +18,23 @@ interface RemoveItem {
     type: "remove",
     index: number
 }
+interface ResetItems<T> {
+    type: 'reset',
+    items: T[]
+}
 
-type ItemTemplate<T> = (context: State<T>) => ITemplate[];
+type ItemTemplate<T> = (values: T, index: () => number) => ITemplate[];
 interface ContainerProps<T> {
-    source?: ContainerSource<T>;
+    mutations: ContainerSource<T>;
 }
 export default function Container<T>(props: ContainerProps<T>, _children: ItemTemplate<T>[]) {
     return {
         render(driver: IDriver) {
             const items: ContainerItem[] = [];
-            const { source } = props;
+            const { mutations } = props;
             const rootScope = driver.createScope();
             return [
-                source.subscribe(applyMutation),
+                mutations.subscribe(applyMutation),
                 {
                     dispose() {
                         for(const item of items) {
@@ -60,28 +64,34 @@ export default function Container<T>(props: ContainerProps<T>, _children: ItemTe
                     scope.dispose();
                     disposeMany(bindings);
                     items.splice(idx, 1);
+                } else if ( m.type === 'reset') {
+                    const { items } = m;
+                    for(let i = 0 ; i<items.length ; i++) {
+                        applyInsert(items[i], i);
+                    }
+                } else {
+                    console.error('not a mutation ' + m);
                 }
 
-                function applyInsert(values: T, index: number) {
-                    const itemScope = rootScope.createScope(index);
-                    const store = new Store(values);
+                function applyInsert(values: T, idx: number) {
+                    const itemScope = rootScope.createScope(idx);
                     const bindings = renderStack(
-                        flatTree(_children, [ store, { index, dispose } ]).map(template => ({ driver: itemScope, template })).reverse()
+                        flatTree(_children, [ values, index ]).map(template => ({ driver: itemScope, template })).reverse()
                     );
-                    bindings.push(store.subscribe(source.notify, true));
                     const item: ContainerItem = {
                         scope: itemScope,
                         bindings
                     }
-                    items.splice(index, 0, item);
-                    function dispose() {
-                        const idx = items.indexOf(item);
-                        if (idx >= 0) {
-                            source.add({
-                                type: 'remove',
-                                index: idx
-                            });
-                        };
+                    items.splice(idx, 0, item);
+
+                    function index() {
+                        for(let i = 0 ; i<items.length ; i++) {
+                            const item = items[i];
+                            if (item.scope === itemScope) {
+                                return i;
+                            }
+                        }
+                        return idx;
                     }
                 }
             }
@@ -92,7 +102,6 @@ export default function Container<T>(props: ContainerProps<T>, _children: ItemTe
 
 export interface ContainerSource<T> extends Subscribable<Mutation<T>> {
     add(values: T | Mutation<T>);
-    notify();
 }
 
 interface ContainerItem {
@@ -102,6 +111,6 @@ interface ContainerItem {
 
 export interface ContainerItemContext {
     dispose(): any;
-    index: number;
+    index: () => number;
 }
 
