@@ -41,7 +41,10 @@ export function createContainerSource<T>(
         if (mut.type === "push") {
             const { values } = mut;
             updatable.update((arr) => {
-                arr.push(values);
+                if (Array.isArray(arr))
+                    arr.push(values);
+                else
+                    return [ values ];
             });
         } else if (mut.type === "remove") {
             const { index } = mut;

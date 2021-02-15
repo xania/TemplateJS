@@ -49,6 +49,7 @@ export default function Container<T>(props: ContainerProps<T>, _children: ItemTe
             ];
 
             function applyMutation(m: Mutation<T>) {
+                if (!m){ return; }
                 if(m.type === "push") {
                     const { values } = m;
                     applyInsert(values, items.length);
